@@ -17,7 +17,7 @@ use pq_eddsa::circuit::PqEddsaCircuit;
 
 
 
-const RUNS: usize = 10;
+const RUNS: usize = 30;
 
 #[test]
 #[ignore = "measurement; run with --ignored"]
@@ -105,9 +105,12 @@ where
         }
     }
 
-    let mean = |v: &[u128]| v.iter().sum::<u128>() as f64 / v.len() as f64;
-    let min = |v: &[u128]| *v.iter().min().unwrap();
-    let max = |v: &[u128]| *v.iter().max().unwrap();
+    let stats = |v: &[u128]| {
+        let mut s = v.to_vec();
+        s.sort_unstable();
+        let mean = s.iter().sum::<u128>() as f64 / s.len() as f64;
+        (mean, s[s.len() / 2], s[0], s[s.len() - 1])
+    };
 
     println!("\n=== PQ-EdDSA R_det, full circuit — {suite_name} Merkle ===");
     println!("host:            Apple M1 Pro (8 cores), single-threaded");
@@ -120,14 +123,10 @@ where
     println!();
     println!("circuit build:   {build_ms} ms");
     println!("prover setup:    {setup_ms} ms");
-    println!(
-        "prove:           {:.1} ms  (min {}, max {}, n={})",
-        mean(&prove_ms), min(&prove_ms), max(&prove_ms), prove_ms.len()
-    );
-    println!(
-        "verify:          {:.1} ms  (min {}, max {}, n={})",
-        mean(&verify_ms), min(&verify_ms), max(&verify_ms), verify_ms.len()
-    );
+    let (pm, pmed, pmin, pmax) = stats(&prove_ms);
+    let (vm, vmed, vmin, vmax) = stats(&verify_ms);
+    println!("prove:           mean {pm:.1}  median {pmed}  min {pmin}  max {pmax}  (n={})", prove_ms.len());
+    println!("verify:          mean {vm:.1}  median {vmed}  min {vmin}  max {vmax}  (n={})", verify_ms.len());
     println!("proof size:      {} bytes ({} KiB)", proof_size, proof_size / 1024);
     println!();
     println!("PQChain (Ligetron, M4 Pro 12-core, ~128-bit soundness, avg of 100):");
