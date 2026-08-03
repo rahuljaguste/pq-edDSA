@@ -20,7 +20,10 @@
 //! selector is derived from the secret scalar, a branch is exactly what must be avoided.
 //! The circuit shape is independent of the scalar by construction.
 
-use binius_circuits::{bignum::BigUint, multiplexer::multi_wire_multiplex};
+use binius_circuits::{
+    bignum::{BigUint, select as select_biguint},
+    multiplexer::multi_wire_multiplex,
+};
 use binius_frontend::{CircuitBuilder, Wire};
 use num_bigint::BigUint as NB;
 
@@ -44,6 +47,36 @@ pub const fn n_windows(w: usize) -> usize {
     256usize.div_ceil(w)
 }
 
+/// Recode `k` into signed base-`2^w` digits in `[-2^(w-1), 2^(w-1)-1]`.
+///
+/// Standard carry-propagating recoding: if a raw digit is at least `2^(w-1)`, borrow
+/// `2^w` from it and carry one into the next window. The result needs one extra window to
+/// absorb a final carry.
+///
+/// Halving the digit range halves the table, which is the entire point: the multiplexer
+/// is the largest non-addition term in the circuit.
+pub fn recode_signed(k: &NB, w: usize) -> Vec<i64> {
+    let n = n_windows(w) + 1;
+    let half = 1i64 << (w - 1);
+    let full = 1i64 << w;
+
+    let mut out = Vec::with_capacity(n);
+    let mut carry = 0i64;
+    for i in 0..n {
+        let mut raw = 0i64;
+        for bit in 0..w {
+            if k.bit((i * w + bit) as u64) {
+                raw |= 1 << bit;
+            }
+        }
+        let d = raw + carry;
+        carry = if d >= half { 1 } else { 0 };
+        out.push(d - carry * full);
+    }
+    debug_assert_eq!(carry, 0, "recoding overflowed its extra window");
+    out
+}
+
 /// Host-side tables for every window: table `i` is `[0·B_i, …, (2^w - 1)·B_i]` with
 /// `B_i = (2^w)^i · G`, as affine points.
 ///
@@ -54,11 +87,15 @@ pub const fn n_windows(w: usize) -> usize {
 /// The naive form is quadratic: window `i` needs `i·w` doublings, so all 64 windows cost
 /// ~8,000 where ~250 suffice — and each doubling is two 255-bit modular inversions.
 pub fn host_comb_tables(w: usize) -> Vec<Vec<Affine>> {
-    let size = 1usize << w;
+    // Signed digits are in [-2^(w-1), 2^(w-1)-1], so the table holds |d| in
+    // [0, 2^(w-1)] — 2^(w-1)+1 entries rather than 2^w. Negative digits reuse the same
+    // entry with a conditional negation.
+    let size = (1usize << (w - 1)) + 1;
     let mut base = basepoint();
-    let mut tables = Vec::with_capacity(n_windows(w));
+    // One extra window absorbs the recoding's final carry.
+    let mut tables = Vec::with_capacity(n_windows(w) + 1);
 
-    for _ in 0..n_windows(w) {
+    for _ in 0..(n_windows(w) + 1) {
         let mut table = Vec::with_capacity(size);
         table.push(identity());
         let mut acc = base.clone();
@@ -107,6 +144,12 @@ fn digit(b: &CircuitBuilder, scalar: &BigUint, i: usize, w: usize) -> Wire {
     let shift = lo_bit % 64;
     let mask = b.add_constant_64((1u64 << w) - 1);
 
+    // The signed recoding adds one window past the scalar's width to absorb a final
+    // carry. Its raw digit is zero by construction — the scalar has no bits there.
+    if limb_ix >= scalar.limbs.len() {
+        return b.add_constant_64(0);
+    }
+
     let lo = b.shr(scalar.limbs[limb_ix], shift as u32);
 
     // A straddle needs shift > 0, so `64 - shift` is in 1..=63 and the shift is well
@@ -122,7 +165,16 @@ fn digit(b: &CircuitBuilder, scalar: &BigUint, i: usize, w: usize) -> Wire {
     b.band(combined, mask)
 }
 
-/// `scalar · G` in extended coordinates, using `w`-bit windows.
+/// `scalar · G` in extended coordinates, using signed `w`-bit windows.
+///
+/// The digits are recoded in-circuit to `[-2^(w-1), 2^(w-1)-1]` so each table holds only
+/// `|d|` — `2^(w-1)+1` entries instead of `2^w`. At `w = 6` that is 33 rather than 64,
+/// roughly halving the multiplexer, which is the largest non-addition cost in the circuit.
+///
+/// The recoding cannot be done host-side and supplied as a hint: the digits must be a
+/// verified function of the committed scalar, and constraining a hinted recomposition
+/// would cost more than the multiplexer saves. Done in-circuit it is word arithmetic on
+/// values below `2^w`, a few constraints per window.
 pub fn mul_basepoint_with_window(
     b: &CircuitBuilder,
     f: &Fp,
@@ -130,12 +182,28 @@ pub fn mul_basepoint_with_window(
     w: usize,
 ) -> Point {
     assert_eq!(scalar.limbs.len(), N_LIMBS);
-    assert!((1..=8).contains(&w), "window must be 1..=8 bits");
+    assert!((2..=8).contains(&w), "window must be 2..=8 bits");
     let tables = comb_tables(b, f, w);
 
+    let half = b.add_constant_64(1u64 << (w - 1));
+    let full = b.add_constant_64(1u64 << w);
+    let zero = b.add_constant_64(0);
+
+    let p_const = f.constant(b, &crate::consts::p_bigint());
+    let mut carry = zero;
     let mut acc = Point::identity(b, f);
+
     for (i, table) in tables.iter().enumerate() {
-        let sel = digit(b, scalar, i, w);
+        // raw + carry, then borrow 2^w when it reaches 2^(w-1).
+        let raw = digit(b, scalar, i, w);
+        let (d, _) = b.iadd_cin_cout(raw, carry, zero);
+        let lt = b.icmp_ult(d, half);
+        // MSB-boolean: true when d >= half, i.e. this window borrows.
+        let borrow = b.bnot(lt);
+        let (neg_mag, _) = b.isub_bin_bout(full, d, zero);
+        let magnitude = b.select(borrow, neg_mag, d);
+        carry = b.select(borrow, b.add_constant_64(1), zero);
+
         let groups: Vec<Vec<Wire>> = table
             .iter()
             .map(|n| {
@@ -146,12 +214,18 @@ pub fn mul_basepoint_with_window(
             })
             .collect();
         let refs: Vec<&[Wire]> = groups.iter().map(|g| g.as_slice()).collect();
-        let picked = multi_wire_multiplex(b, &refs, sel);
+        let picked = multi_wire_multiplex(b, &refs, magnitude);
 
+        let ypx = BigUint { limbs: picked[0..N_LIMBS].to_vec() };
+        let ymx = BigUint { limbs: picked[N_LIMBS..2 * N_LIMBS].to_vec() };
+        let t2d = BigUint { limbs: picked[2 * N_LIMBS..3 * N_LIMBS].to_vec() };
+
+        // Negating (x, y) -> (-x, y) swaps y+x with y-x and negates 2dxy.
+        let neg_t2d = f.sub(b, &p_const, &t2d);
         let chosen = Niels {
-            y_plus_x: BigUint { limbs: picked[0..N_LIMBS].to_vec() },
-            y_minus_x: BigUint { limbs: picked[N_LIMBS..2 * N_LIMBS].to_vec() },
-            t2d: BigUint { limbs: picked[2 * N_LIMBS..3 * N_LIMBS].to_vec() },
+            y_plus_x: select_biguint(b, borrow, &ymx, &ypx),
+            y_minus_x: select_biguint(b, borrow, &ypx, &ymx),
+            t2d: select_biguint(b, borrow, &neg_t2d, &t2d),
         };
         acc = acc.add_niels(b, f, &chosen);
     }
@@ -166,17 +240,22 @@ pub fn mul_basepoint(b: &CircuitBuilder, f: &Fp, scalar: &BigUint) -> Point {
 /// Host-side `k · G` via the same comb, for cross-checking the tables.
 pub fn host_comb_mul(k: &NB, w: usize) -> Affine {
     let tables = host_comb_tables(w);
+    let digits = recode_signed(k, w);
+    let p = crate::consts::p_bigint();
+
     let mut acc = identity();
-    for (i, table) in tables.iter().enumerate() {
-        let mut d = 0u64;
-        for bit in 0..w {
-            if k.bit((i * w + bit) as u64) {
-                d |= 1 << bit;
-            }
+    for (i, d) in digits.iter().enumerate() {
+        if *d == 0 {
+            continue;
         }
-        if d != 0 {
-            acc = add_affine(&acc, &table[d as usize]);
-        }
+        let entry = &tables[i][d.unsigned_abs() as usize];
+        let point = if *d > 0 {
+            entry.clone()
+        } else {
+            // Negation on a twisted Edwards curve: (x, y) -> (-x, y).
+            ((&p - &entry.0) % &p, entry.1.clone())
+        };
+        acc = add_affine(&acc, &point);
     }
     acc
 }
@@ -336,7 +415,8 @@ mod sweep {
             let cs = b.build();
             let sys = cs.constraint_system();
             let (and, imul) = (sys.n_and_constraints(), sys.imul_constraints.len());
-            let entries = n_windows(w) * (1 << w);
+            // One extra window for the carry; tables hold |d| only.
+            let entries = (n_windows(w) + 1) * ((1 << (w - 1)) + 1);
             println!(
                 "  {w}  {:>7}  {and:<8} {imul:<8} {entries}",
                 n_windows(w)

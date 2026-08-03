@@ -304,3 +304,41 @@ quiescent machine.** The relative results above are sound — Blake3 against SHA
 rayon against single-threaded, were each taken back-to-back under identical conditions,
 and the Blake3 comparison additionally survives order reversal. Ratios against PQChain do
 not have that protection and must be re-derived.
+
+## Signed-digit comb recoding
+
+Digits are recoded in-circuit to `[-2^(w-1), 2^(w-1)-1]`, so each table holds `|d|` only:
+`2^(w-1)+1` entries instead of `2^w` — 33 rather than 64 at `w = 6`. Negative digits reuse
+the entry with a conditional negation, which in niels form `(y+x, y-x, 2dxy)` is a swap of
+the first two coordinates and a negation of the third.
+
+One extra window absorbs the recoding's final carry, so 44 windows rather than 43.
+
+| signal | before | after | change |
+|---|---|---|---|
+| AND | 70,252 | **57,314** | −18%, **2^17 → 2^16 padded** |
+| IMUL | 7,260 | 7,428 | +2% (the extra window), tier 2^13 unchanged |
+| private wires | 82,311 | 69,598 | −15% |
+| proof size | 527,584 | 527,552 | −32 bytes |
+| prove time | ~119 ms | ~113 ms | ~5% |
+
+### The padding-tier flip is real; the payoff is modest
+
+Halving the padded AND stream sounds decisive and is not, because **AND was never the
+bottleneck**. On the `ec_msm` reference profile the BitAnd phase was ~11% of proving time
+against IntMul's ~50%. Halving an 11% term caps the win near 5%, which is what the
+measurement shows. Proof size is essentially unchanged.
+
+Worth stating plainly because the tier crossing invites a larger expectation than the
+profile supports. The optimisation is still worth keeping — strictly smaller circuit,
+fewer wires, no correctness cost, all differential tests still passing against
+`curve25519-dalek` at `w = 3, 4, 5, 6` — but the lever that matters for proving time is
+IMUL, not AND.
+
+### Why the recoding is in-circuit
+
+It cannot be done host-side and supplied as a hint. The digits must be a verified function
+of the committed scalar, and constraining a hinted recomposition
+(`Σ dᵢ·(2^w)^i == scalar`) would cost a full-width bignum computation — more than the
+multiplexer saves. In-circuit it is word arithmetic on values below `2^w`: an add, a
+comparison, a conditional subtract and a select per window, a few constraints each.

@@ -13,10 +13,10 @@
 use binius_frontend::CircuitBuilder;
 use pq_eddsa::{circuit::PqEddsaCircuit, config::RECOMMENDED_N_DUMMY_CONSTRAINTS};
 
-/// Measured 2026-08-03 at comb window 6.
-const EXPECTED_AND: usize = 70_252;
-const EXPECTED_IMUL: usize = 7_260;
-const EXPECTED_PRIVATE: usize = 82_311;
+/// Measured 2026-08-03 at comb window 6, after signed-digit recoding.
+const EXPECTED_AND: usize = 57_314;
+const EXPECTED_IMUL: usize = 7_428;
+const EXPECTED_PRIVATE: usize = 69_598;
 
 /// Allow small drift without failing on every incidental change.
 const TOLERANCE: f64 = 0.05;
@@ -57,8 +57,11 @@ fn circuit_size_matches_the_blinding_measurement() {
 /// constant without re-measuring, this fails.
 #[test]
 fn recommended_blinding_is_inside_the_measured_cliff() {
-    /// Measured in the Task 8 spike: 2,132 is free, 2,133 is not.
-    const MEASURED_CLIFF: usize = 2_132;
+    /// Measured in the Task 8 spike: 2,133 is free, 2,134 is not.
+    ///
+    /// Notably insensitive to circuit size — an 18% reduction in AND constraints and 15%
+    /// in private wires moved this by exactly one. See the spike write-up.
+    const MEASURED_CLIFF: usize = 2_133;
     // A compile-time check: raising the constant past the measured cliff should fail the
     // build, not wait for someone to run the tests.
     const _: () = assert!(RECOMMENDED_N_DUMMY_CONSTRAINTS <= MEASURED_CLIFF);
