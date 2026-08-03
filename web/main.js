@@ -48,7 +48,18 @@ const previewPk = () => {
     /* half-typed seed; say nothing */
   }
 };
-$('seed').addEventListener('input', previewPk);
+// A displayed statement belongs to the seed it was proved from. Once the inputs change it
+// no longer describes what is in the boxes above, and on a page about the split between
+// secret and statement that is exactly the confusion worth avoiding.
+const markStale = () => {
+  if (last) $('stale').hidden = false;
+};
+$('seed').addEventListener('input', () => {
+  previewPk();
+  markStale();
+});
+$('msg').addEventListener('input', markStale);
+$('relation').addEventListener('change', markStale);
 
 const row = (label, value) => `<tr><th>${label}</th><td class="n">${value}</td></tr>`;
 
@@ -88,10 +99,6 @@ $('prove').onclick = async () => {
     const proof = session.prove(seed, msg);
     timings.push(['prove', `${ms(t1)} ms`]);
 
-    // wasm-bindgen objects are not garbage collected on the Rust side; a half-megabyte
-    // proof per click adds up over a demo session.
-    if (last) last.proof.free();
-
     const bytes = proof.bytes;
     const t2 = performance.now();
     session.verify(bytes, proof.pk, proof.msg, proof.hx);
@@ -103,7 +110,17 @@ $('prove').onclick = async () => {
     $('out-hx').textContent = proof.hx;
     $('timings').innerHTML = timings.map(([k, v]) => row(k, v)).join('');
     $('results').hidden = false;
+    $('stale').hidden = true;
+
+    // Release the previous proof only once the new one is safely installed. wasm-bindgen
+    // registers a FinalizationRegistry, so this is about releasing half a megabyte
+    // promptly rather than at the GC's convenience — but freeing before the swap would
+    // leave `last` dangling if anything above threw, and the next free() would then
+    // throw "null pointer passed to rust" over a proof that had actually succeeded.
+    const prev = last;
     last = { proof, bytes, relation };
+    if (prev) prev.proof.free();
+
     setStatus('Proof generated and verified, here in this tab.', 'ok');
     for (const b of ['verify', 'tamper', 'download']) $(b).disabled = false;
   } catch (e) {
@@ -142,11 +159,16 @@ $('tamper').onclick = async () => {
 
 $('download').onclick = () => {
   const blob = new Blob([last.bytes], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = `pq-eddsa-${last.relation}-${last.proof.pk.slice(0, 8)}.proof`;
+  // Appended, and revoked on a later turn: revoking synchronously after click() can
+  // cancel the download before it starts, and a detached anchor does not always fire.
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
   setStatus(
     'Downloaded. Check it against the native verifier: ' +
       'cargo run --release --bin cli -- verify --proof <file> --pk <pk> --msg <msg> --hx <hx>' +

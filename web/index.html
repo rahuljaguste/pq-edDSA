@@ -58,7 +58,7 @@
   <body>
     <h1>Prove you control an Ed25519 key — without revealing it</h1>
     <p class="sub">
-      A zero-knowledge proof of the <code>R_det</code> relation from
+      A zero-knowledge proof of the <code>R_rand</code> / <code>R_det</code> relations from
       <em>Post-Quantum Readiness in EdDSA Chains</em> (FC 2026), on Binius64.
     </p>
 
@@ -114,8 +114,15 @@
 
     <div id="results" hidden>
       <h2>3. The statement</h2>
+      <p id="stale" class="warn" style="font-size:.85rem; padding:.5rem .8rem" hidden>
+        The inputs above have changed. What follows is the previous proof, not a proof of
+        what is now in the boxes. Press <em>Generate proof</em> again.
+      </p>
       <p class="sub" style="font-size:.85rem">
-        This is everything a verifier gets. The seed is not derivable from it.
+        This is everything a verifier gets, and the seed is not in it. Under
+        <code>rand</code> that is all anyone learns. Under <code>det</code>,
+        <code>hx</code> is additionally a fixed commitment to your seed — not invertible,
+        but testable against guesses.
       </p>
       <table>
         <tr><th>pk</th><td><pre id="out-pk"></pre></td></tr>
@@ -127,8 +134,12 @@
       <table id="timings"></table>
       <p class="sub" style="font-size:.82rem">
         Setup is one-time and shared by every later proof in this tab. Proving is
-        single-threaded: the browser has no <code>SharedArrayBuffer</code> here, so the
-        parallel path degrades to one core, and the tab freezes while it runs.
+        single-threaded — this build does not turn on binius64's <code>rayon</code>
+        feature, and on wasm32 without atomics the parallel path degrades to one core
+        regardless. Multi-core would need cross-origin isolation for
+        <code>SharedArrayBuffer</code>, and would likely buy nothing: rayon measures
+        within noise on a circuit this small even natively. The tab freezes while proving
+        runs.
       </p>
     </div>
 

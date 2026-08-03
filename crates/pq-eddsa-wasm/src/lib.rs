@@ -22,8 +22,10 @@
 //!
 //! Do **not** pass `-C target-feature=+simd128`. binius64's wasm32 SIMD module does not
 //! compile at the pinned revision (fix submitted upstream as binius-zk/binius64#1993),
-//! and it is worth ~2% anyway — the module aliases the portable arithmetic and only its
-//! lane splitting uses intrinsics. See `docs/spikes/2026-08-03-task0-derisk.md`.
+//! and measured **0.7%** on this circuit with the fix applied — the module aliases the
+//! portable field arithmetic and only its lane splitting uses intrinsics, and wasm has no
+//! carry-less multiply for it to reach. See
+//! `docs/spikes/2026-08-03-task10-browser.md`.
 
 use binius_frontend::{Circuit, CircuitBuilder};
 use binius_verifier::{
