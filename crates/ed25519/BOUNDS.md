@@ -238,3 +238,32 @@ honest hint never produces a non-canonical value. `canonicality_assertion_reject
 therefore installs a deliberately malicious hint and checks both directions: without the
 assertion the bad value is accepted (confirming the hole is real), with it the constraint
 system rejects.
+
+## Does Rayon help?
+
+**No — ~1% at this circuit size, within noise.** Measured on the full `R_det` circuit,
+M1 Pro (6 performance + 2 efficiency cores), direct test binary, three runs each:
+
+| build | run 1 | run 2 | run 3 |
+|---|---|---|---|
+| single-threaded | 78.9 ms | 83.6 ms | 81.4 ms |
+| `--features rayon` | 79.9 ms | 79.7 ms | 79.8 ms |
+
+Rayon *is* wired correctly — the `rayon` crate enters the dependency graph only when the
+feature is on, confirmed with `cargo tree`. It simply has nothing to work with: at 70,252
+AND and 7,260 IMUL this circuit is small by binius64's standards, and the prover is
+latency-bound rather than throughput-bound. Thread coordination cancels the gains.
+
+The one visible effect is **lower variance** (77–87 ms against 76–106 ms), consistent with
+rayon being active but not improving throughput.
+
+Not established here: whether rayon pays off at larger circuit sizes. binius64's own
+published benchmarks are on signature-aggregation workloads orders of magnitude bigger,
+where it presumably does. The claim above is scoped to this circuit.
+
+### Benchmark methodology error, corrected
+
+Earlier figures of 119.6 ms proving were taken while other `cargo` processes were running.
+Run on a quiescent machine the same code measures **80.0 ms**. Benchmarks must run from
+the test binary directly on an otherwise idle machine, not under `cargo test` alongside
+other work — a 50% error is more than enough to invalidate a comparison.

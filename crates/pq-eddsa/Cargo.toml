@@ -24,3 +24,8 @@ getrandom = "0.4"
 [dev-dependencies]
 curve25519-dalek = "4"
 ed25519-dalek = "2"
+
+[features]
+# Multi-threaded proving. Off by default so benchmarks are comparable across
+# machines; enable with --features rayon.
+rayon = ["binius-prover/rayon"]
