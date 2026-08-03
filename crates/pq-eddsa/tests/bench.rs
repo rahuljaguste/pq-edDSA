@@ -6,7 +6,7 @@
 
 use binius_core::verify::verify_constraints;
 use binius_frontend::CircuitBuilder;
-use binius_hash::sha256::Sha256HashSuite;
+use binius_hash::{Blake3HashSuite, sha256::Sha256HashSuite};
 use binius_prover::{OptimalPackedB128, zk_config::ZKProver};
 use binius_verifier::{
     config::StdChallenger,
@@ -15,13 +15,37 @@ use binius_verifier::{
 };
 use pq_eddsa::circuit::PqEddsaCircuit;
 
-type Suite = Sha256HashSuite;
+
 
 const RUNS: usize = 10;
 
 #[test]
 #[ignore = "measurement; run with --ignored"]
 fn measure_full_circuit() {
+    run::<Sha256HashSuite>("SHA-256");
+}
+
+#[test]
+#[ignore = "measurement; run with --ignored"]
+fn measure_hash_suites() {
+    run::<Sha256HashSuite>("SHA-256");
+    run::<Blake3HashSuite>("Blake3");
+}
+
+/// Same comparison, reversed. If the two orders disagree, the measurement is being
+/// distorted by whatever runs first rather than by the suites themselves.
+#[test]
+#[ignore = "measurement; run with --ignored"]
+fn measure_hash_suites_reversed() {
+    run::<Blake3HashSuite>("Blake3");
+    run::<Sha256HashSuite>("SHA-256");
+}
+
+fn run<S>(suite_name: &str)
+where
+    S: binius_hash::binary_merkle_tree::HashSuite + Clone,
+    digest::Output<S::LeafHash>: binius_utils::SerializeBytes + binius_utils::DeserializeBytes,
+{
     let seed: [u8; 32] = hex::decode(
         "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
     )
@@ -48,8 +72,8 @@ fn measure_full_circuit() {
     verify_constraints(cs.constraint_system(), &witness).unwrap();
 
     let t_setup = std::time::Instant::now();
-    let verifier = ZKVerifier::<Suite>::setup(cs.constraint_system().clone(), 1).unwrap();
-    let prover = ZKProver::<OptimalPackedB128, Suite>::setup(&verifier).unwrap();
+    let verifier = ZKVerifier::<S>::setup(cs.constraint_system().clone(), 1).unwrap();
+    let prover = ZKProver::<OptimalPackedB128, S>::setup(&verifier).unwrap();
     let setup_ms = t_setup.elapsed().as_millis();
 
     let mut seed_bytes = [0u8; 32];
@@ -85,7 +109,7 @@ fn measure_full_circuit() {
     let min = |v: &[u128]| *v.iter().min().unwrap();
     let max = |v: &[u128]| *v.iter().max().unwrap();
 
-    println!("\n=== PQ-EdDSA R_det, full circuit ===");
+    println!("\n=== PQ-EdDSA R_det, full circuit — {suite_name} Merkle ===");
     println!("host:            Apple M1 Pro (8 cores), single-threaded");
     println!("soundness:       96 bits classical (upstream SECURITY_BITS)");
     println!("config:          ZK path, log_inv_rate = 1, SHA-256 Merkle");

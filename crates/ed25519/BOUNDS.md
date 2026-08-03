@@ -267,3 +267,40 @@ Earlier figures of 119.6 ms proving were taken while other `cargo` processes wer
 Run on a quiescent machine the same code measures **80.0 ms**. Benchmarks must run from
 the test binary directly on an otherwise idle machine, not under `cargo test` alongside
 other work — a 50% error is more than enough to invalidate a comparison.
+
+## Merkle hash suite: SHA-256 or Blake3?
+
+**SHA-256. Blake3 is ~8% slower here.** Measured back-to-back in one process, then with
+the order reversed as a control:
+
+| order | Blake3 | SHA-256 |
+|---|---|---|
+| SHA-256 first | 131.1 ms | 119.8 ms |
+| Blake3 first | 130.3 ms | 120.3 ms |
+
+Both orders agree, so this is the suites rather than a warm-up artefact. Proof size is
+identical (527,584 bytes) and verification is within noise, so there is no compensating
+gain. Soundness is unchanged: both produce 256-bit digests, so the Merkle and
+Fiat-Shamir birthday bounds stay at ~2^-128.
+
+Likely cause: Apple silicon has SHA-256 instructions, and `sha256_x4` in `binius-hash`
+exists to use them. Blake3's advantage on general hardware does not survive against a
+hardware-accelerated competitor. **This conclusion is therefore hardware-specific** and
+should be re-measured on x86-64 without SHA-NI before being treated as general.
+
+Note the *in-circuit* hash is not a choice: RFC 8032 mandates SHA-512 for `sk = H(seed)`,
+so the blake2b and blake3 gadgets in `binius-circuits` cannot substitute without changing
+the relation being proved. binius-hash also offers no blake2b Merkle suite — the options
+are SHA-256 and Blake3 only.
+
+## Benchmarking requires an idle machine — absolute figures are provisional
+
+The same binary measured **80 ms** and **121 ms** for proving on the same machine on the
+same day. The difference is system load: the second was taken at load average 8.15 on an
+8-core host.
+
+**No absolute timing in this repository should be published until it is re-measured on a
+quiescent machine.** The relative results above are sound — Blake3 against SHA-256, and
+rayon against single-threaded, were each taken back-to-back under identical conditions,
+and the Blake3 comparison additionally survives order reversal. Ratios against PQChain do
+not have that protection and must be re-derived.
