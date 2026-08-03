@@ -1,0 +1,67 @@
+//! Pins the circuit's size.
+//!
+//! Not a performance guard — a **correctness guard for a measured constant**.
+//!
+//! `config::RECOMMENDED_N_DUMMY_CONSTRAINTS` was chosen by measuring where raising the ZK
+//! blinding stops being free (`docs/spikes/2026-08-03-task8-blinding.md`). That cliff sits
+//! at 2,132 for *this* circuit, because blinding pads the outer Spartan system whose size
+//! this circuit determines. If the circuit changes materially the cliff moves, and 2,048
+//! could silently stop being free — or a much higher value could become available.
+//!
+//! Nothing else would detect that, so this test does.
+
+use binius_frontend::CircuitBuilder;
+use pq_eddsa::{circuit::PqEddsaCircuit, config::RECOMMENDED_N_DUMMY_CONSTRAINTS};
+
+/// Measured 2026-08-03 at comb window 6.
+const EXPECTED_AND: usize = 70_252;
+const EXPECTED_IMUL: usize = 7_260;
+const EXPECTED_PRIVATE: usize = 82_311;
+
+/// Allow small drift without failing on every incidental change.
+const TOLERANCE: f64 = 0.05;
+
+fn within(actual: usize, expected: usize) -> bool {
+    let lo = (expected as f64 * (1.0 - TOLERANCE)) as usize;
+    let hi = (expected as f64 * (1.0 + TOLERANCE)) as usize;
+    (lo..=hi).contains(&actual)
+}
+
+#[test]
+fn circuit_size_matches_the_blinding_measurement() {
+    let b = CircuitBuilder::new();
+    let _ = PqEddsaCircuit::build(&b);
+    let cs = b.build();
+    let s = cs.constraint_system();
+    let (and, imul, private) =
+        (s.n_and_constraints(), s.imul_constraints.len(), s.n_private);
+
+    let advice = format!(
+        "\n\nCircuit size changed: AND {and} (was {EXPECTED_AND}), \
+         IMUL {imul} (was {EXPECTED_IMUL}), private {private} (was {EXPECTED_PRIVATE}).\n\
+         The free ceiling for n_dummy_constraints was measured at 2,132 for the old size, \
+         and RECOMMENDED_N_DUMMY_CONSTRAINTS = {RECOMMENDED_N_DUMMY_CONSTRAINTS} was chosen \
+         to sit inside it.\n\
+         Re-run the Task 8 spike before trusting that value, then update these constants.\n\
+         See docs/spikes/2026-08-03-task8-blinding.md\n"
+    );
+
+    assert!(within(and, EXPECTED_AND), "{advice}");
+    assert!(within(imul, EXPECTED_IMUL), "{advice}");
+    assert!(within(private, EXPECTED_PRIVATE), "{advice}");
+}
+
+/// The recommendation must stay inside the measured cliff.
+///
+/// Trivially true today, but it makes the relationship explicit: if someone raises the
+/// constant without re-measuring, this fails.
+#[test]
+fn recommended_blinding_is_inside_the_measured_cliff() {
+    /// Measured in the Task 8 spike: 2,132 is free, 2,133 is not.
+    const MEASURED_CLIFF: usize = 2_132;
+    assert!(
+        RECOMMENDED_N_DUMMY_CONSTRAINTS <= MEASURED_CLIFF,
+        "RECOMMENDED_N_DUMMY_CONSTRAINTS ({RECOMMENDED_N_DUMMY_CONSTRAINTS}) exceeds the \
+         measured free cliff ({MEASURED_CLIFF}); re-measure before raising it"
+    );
+}
