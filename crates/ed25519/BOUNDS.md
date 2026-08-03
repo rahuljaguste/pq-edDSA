@@ -56,7 +56,27 @@ This is maintained by the library, not assumed of callers:
 - `add` takes two values below the modulus, so the sum is below `2·(2p)` and the overflow
   past the top limb is a single carry bit. It conditionally subtracts the modulus, landing
   back in `[0, 2p)`.
-- `sub` conditionally adds the modulus, likewise landing in `[0, 2p)`.
+- `sub(x, y)` is implemented upstream as `add(x, modulus - y)` (`prime_field.rs:81-87`),
+  which lands in `[0, 2p)` as well — but see the caveat below.
+
+### Caveat: `sub` momentarily violates `add`'s precondition
+
+`add` documents that "Both inputs are reduced, so the sum is below `2 * modulus`". When
+`y = 0`, `sub` passes `modulus - 0 = modulus` as `add`'s second operand, which is **not**
+below the modulus. The result is still correct, but for a subtler reason than the stated
+precondition:
+
+- `sum = x + 2p` where `x < 2p`, so `sum < 4p` and the overflow past `2^256` is still a
+  single bit — the carry-width assumption survives.
+- That carry is set exactly when `x >= 38`, since `2p = 2^256 - 38`.
+- The final step is a *wrapping* subtraction, and upstream's own comment covers this case:
+  "with one [carry] it borrows out by exactly the `2^(64 * l)` the carry stands for."
+
+So correctness rests on the carry and the wrap cancelling, not on the documented
+precondition. That is a fragile-looking argument to leave implicit, so
+`sub_edge_cases_around_zero_and_modulus` in `field.rs` pins it with explicit cases on both
+sides of the `x = 38` boundary — values a random property test would essentially never
+generate.
 
 ### Product bound
 

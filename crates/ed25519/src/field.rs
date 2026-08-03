@@ -225,6 +225,82 @@ mod tests {
         }
     }
 
+    /// Edge cases the random property tests will essentially never generate.
+    ///
+    /// `sub(x, y)` is implemented as `add(x, modulus - y)`, so `y = 0` feeds *exactly*
+    /// the modulus into `add` — violating `add`'s documented precondition that both
+    /// inputs are reduced. It is still correct, but only because the carry and the
+    /// wrapping subtraction cancel: `sum = x + 2p` overflows past `2^256` exactly when
+    /// `x >= 38`, and the wrapped subtraction borrows back by the same amount. That is
+    /// a fragile-looking argument, so it gets explicit coverage rather than relying on
+    /// a random draw hitting `y = 0`.
+    #[test]
+    fn sub_edge_cases_around_zero_and_modulus() {
+        let p = p_bigint();
+        let two_p = crate::consts::two_p_bigint();
+        let cases: &[(NB, NB)] = &[
+            (NB::from(0u32), NB::from(0u32)),
+            (NB::from(5u32), NB::from(0u32)),   // x < 38: no carry
+            (NB::from(100u32), NB::from(0u32)), // x >= 38: carry path
+            (NB::from(37u32), NB::from(0u32)),  // boundary
+            (NB::from(38u32), NB::from(0u32)),  // boundary
+            (NB::from(0u32), NB::from(1u32)),   // wraps to 2p - 1
+            (&p - NB::from(1u32), NB::from(0u32)),
+            (p.clone(), NB::from(0u32)),
+            (&two_p - NB::from(1u32), NB::from(0u32)),
+            (NB::from(0u32), &two_p - NB::from(1u32)),
+        ];
+
+        for (x, y) in cases {
+            let expected = ((x + &two_p - y) % &two_p) % &p;
+            check_binop(x, y, &expected, |f, b, a, c| f.sub(b, a, c))
+                .unwrap_or_else(|e| panic!("sub({x}, {y}) failed: {e:?}"));
+        }
+    }
+
+    /// `add` with an operand at each end of the range, including values that force the
+    /// single-carry path the implementation relies on.
+    #[test]
+    fn add_edge_cases_at_range_boundaries() {
+        let p = p_bigint();
+        let two_p = crate::consts::two_p_bigint();
+        let max = &two_p - NB::from(1u32);
+        let cases: &[(NB, NB)] = &[
+            (NB::from(0u32), NB::from(0u32)),
+            (max.clone(), max.clone()), // sum just under 2*modulus
+            (max.clone(), NB::from(1u32)), // wraps to exactly 0
+            (p.clone(), p.clone()),     // 2p, wraps to 0
+            (&p - NB::from(1u32), NB::from(1u32)),
+        ];
+
+        for (x, y) in cases {
+            let expected = ((x + y) % &two_p) % &p;
+            check_binop(x, y, &expected, |f, b, a, c| f.add(b, a, c))
+                .unwrap_or_else(|e| panic!("add({x}, {y}) failed: {e:?}"));
+        }
+    }
+
+    /// `mul` at the range boundaries, where the product bound `< 4p^2 < 2^512` is tightest.
+    #[test]
+    fn mul_edge_cases_at_range_boundaries() {
+        let p = p_bigint();
+        let two_p = crate::consts::two_p_bigint();
+        let max = &two_p - NB::from(1u32);
+        let cases: &[(NB, NB)] = &[
+            (NB::from(0u32), max.clone()),
+            (NB::from(1u32), max.clone()),
+            (max.clone(), max.clone()), // the tightest product
+            (p.clone(), p.clone()),
+            (p.clone(), NB::from(2u32)),
+        ];
+
+        for (x, y) in cases {
+            let expected = (x * y) % &p;
+            check_binop(x, y, &expected, |f, b, a, c| f.mul(b, a, c))
+                .unwrap_or_else(|e| panic!("mul({x}, {y}) failed: {e:?}"));
+        }
+    }
+
     /// Both representatives of the same residue must compare congruent.
     #[test]
     fn assert_congruent_accepts_both_representatives() {
