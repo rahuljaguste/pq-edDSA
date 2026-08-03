@@ -9,10 +9,26 @@ FC 2026) on [Binius64](https://github.com/binius-zk/binius64), for comparison wi
 paper's reference implementation [SoundnessLabs/PQChain](https://github.com/SoundnessLabs/PQChain),
 which uses the Ligetron zkVM.
 
-This is a second implementation of the same relation on a different proving system, not a
-replacement for the first. The comparison below is a result of that exercise rather than
-its purpose — the interesting question is what the choice of proving system costs, and
-PQChain is the only other implementation to measure against.
+**This is a proving-system experiment, not a competing implementation.** PQChain's authors
+identified their own bottleneck and asked for exactly this:
+
+> *"Ed25519 operates over a prime field (2^255 − 19) that lacks sufficient roots of unity
+> for efficient FFT operations. Ligetron requires FFT-friendly fields with smooth-order
+> multiplicative subgroups (specifically BN254)."*
+>
+> *"We are actively exploring additional proving systems optimized for more compact proof
+> sizes, efficient on-chain verification, and customized circuit architectures."*
+>
+> — [PQChain README](https://github.com/SoundnessLabs/PQChain)
+
+They attribute the cost to a **field requirement of the proving system**, not to their
+circuit. Binius64 is built around not having that requirement — it computes natively over
+64-bit machine words rather than emulating a foreign field, which is precisely the
+constraint they name.
+
+So the question this repository answers is theirs: *what does a proving system without the
+FFT-friendly-field requirement give you on this relation?* The numbers below measure that.
+They are a property of the two proving systems, not of the two implementations.
 
 > **Research artifact.** Not audited, not production-ready. The zero-knowledge claim in
 > particular is unaudited — see [Soundness](#soundness). Do not use this to secure real
@@ -47,16 +63,39 @@ quoting these.
 soundness is lower, which overstates it. Neither is negligible and both are quantified
 below.
 
-### Why it is faster
+### Why — and it is the reason PQChain gave
 
-The paper identifies its own bottleneck: Ed25519's `F_p` is not FFT-friendly, so Ligetron
-emulates it in 85-bit limbs inside BN254, and that emulation plus the public-key
-consistency check accounts for ~70% of its 4.9M constraints.
+PQChain reports that non-native field emulation and the public-key consistency check are
+**~70% of its 4.9M constraints**. That is not an implementation inefficiency; it is the
+price of representing `F_p` for `p = 2^255 − 19` inside BN254, in three 85-bit limbs,
+because the proving system needs an FFT-friendly field.
 
-Binius64 has no such notion. It computes over 64-bit machine words with a native
-64×64→128 integer-multiply constraint, so 255-bit arithmetic is ordinary 4-limb schoolbook
-bignum rather than emulation. SHA-512, being 64-bit-word-oriented, is likewise native at
+Binius64 has no such requirement. It computes over 64-bit words with a native 64×64→128
+integer-multiply constraint, so 255-bit arithmetic is ordinary 4-limb schoolbook bignum —
+no emulation layer to pay for. SHA-512, being 64-bit-word-oriented, is likewise native at
 1,830 AND constraints per compression block.
+
+The measurement therefore **confirms PQChain's own diagnosis** rather than contradicting
+it. Remove the emulation requirement and roughly 70% of the constraints go with it; the
+constraint count falls 76×, which is more than 70% because the remaining work also gets
+cheaper.
+
+### Where Ligetron is ahead
+
+Binius64 is not the better system on every axis, and two of the differences matter for the
+paper's actual use case:
+
+- **Soundness.** Ligetron carries ~128-bit classical; we carry 96-bit, and upstream
+  Binius64 offers no way to raise it. See [Soundness](#soundness). For a *post-quantum
+  readiness* artifact this is the wrong direction to move.
+- **Browser proving.** Ligetron was designed for it — WebAssembly with WebGPU shaders, and
+  PQChain ships a working hosted demo with wallet integration. Binius64 targets CPUs, has
+  no GPU path, and its wasm32 SIMD module did not even compile until we
+  [fixed it](https://github.com/binius-zk/binius64/pull/1993). Client-side proving is
+  central to the paper's argument (the seed must never leave the user's machine), and on
+  that axis Ligetron is the more mature choice today.
+- **Maturity.** Ligetron is a released zkVM. Binius64's zero-knowledge path is new enough
+  that its blinding parameter still carries a `TODO` upstream.
 
 ## Soundness
 
