@@ -1,4 +1,7 @@
 target/
-Cargo.lock
+
+# Cargo.lock IS committed: this is a proof of concept pinned to a binius64 git
+# revision, and its published benchmarks are only reproducible if the whole
+# dependency graph is pinned too, not just the direct dependency.
 spikes/*/web/*.wasm
 spikes/*/web/*.js

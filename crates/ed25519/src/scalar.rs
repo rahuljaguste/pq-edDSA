@@ -189,11 +189,14 @@ mod tests {
         assert_eq!(got[0] & 0b111, 0, "low 3 bits must be cleared");
         assert_eq!(got[3] >> 63, 0, "bit 255 must be cleared");
         assert_eq!((got[3] >> 62) & 1, 1, "bit 254 must be set");
-        // Everything else untouched.
-        assert_eq!(got[0], u64::MAX & !0b111);
+        // Everything else untouched. Written as literals: the obvious
+        // `(u64::MAX & !(1 << 63)) | (1 << 62)` reads as if the OR does work, but bit 62
+        // is already set in that value, so it would silently pass even if `clamp` never
+        // set bit 254. The dedicated assertion above is what actually covers that.
+        assert_eq!(got[0], 0xFFFF_FFFF_FFFF_FFF8, "low 3 bits cleared, rest intact");
         assert_eq!(got[1], u64::MAX);
         assert_eq!(got[2], u64::MAX);
-        assert_eq!(got[3], (u64::MAX & !(1u64 << 63)) | (1u64 << 62));
+        assert_eq!(got[3], 0x7FFF_FFFF_FFFF_FFFF, "bit 255 cleared, bit 254 already set");
     }
 
     /// Clamping an all-zero scalar must still set bit 254 — the range guarantee

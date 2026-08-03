@@ -4,20 +4,15 @@
 
 use anyhow::{Context, Result, bail};
 use binius_frontend::CircuitBuilder;
-use binius_hash::sha256::Sha256HashSuite;
-use binius_prover::{OptimalPackedB128, zk_config::ZKProver};
 use binius_verifier::{
     config::StdChallenger,
     transcript::{ProverTranscript, VerifierTranscript},
-    zk_config::ZKVerifier,
 };
 use clap::{Parser, Subcommand};
 use pq_eddsa::{
     circuit::{PqEddsaCircuit, PublicInputs, public_words},
-    config::SECURITY_BITS,
+    config::{ProofConfig, SECURITY_BITS},
 };
-
-type Suite = Sha256HashSuite;
 
 #[derive(Parser)]
 #[command(name = "pq-eddsa", about = "Prove EdDSA key ownership from a seed, in zero knowledge")]
@@ -102,10 +97,8 @@ fn main() -> Result<()> {
                 .map_err(|e| anyhow::anyhow!("witness population failed: {e:?}"))?;
             let witness = w.into_value_vec();
 
-            let verifier = ZKVerifier::<Suite>::setup(cs.constraint_system().clone(), log_inv_rate)
-                .map_err(|e| anyhow::anyhow!("verifier setup: {e:?}"))?;
-            let prover = ZKProver::<OptimalPackedB128, Suite>::setup(&verifier)
-                .map_err(|e| anyhow::anyhow!("prover setup: {e:?}"))?;
+            let cfg = ProofConfig { log_inv_rate };
+            let (_verifier, prover) = cfg.setup(cs.constraint_system().clone())?;
 
             let mut rng_seed = [0u8; 32];
             getrandom::fill(&mut rng_seed)?;
@@ -151,8 +144,8 @@ fn main() -> Result<()> {
             // statement be accepted as a proof of this one.
             let public = public_words(&cs, &circuit, &pi);
 
-            let verifier = ZKVerifier::<Suite>::setup(cs.constraint_system().clone(), log_inv_rate)
-                .map_err(|e| anyhow::anyhow!("verifier setup: {e:?}"))?;
+            let cfg = ProofConfig { log_inv_rate };
+            let verifier = cfg.setup_verifier(cs.constraint_system().clone())?;
             let mut vt = VerifierTranscript::new(StdChallenger::default(), proof);
             let t = std::time::Instant::now();
             verifier

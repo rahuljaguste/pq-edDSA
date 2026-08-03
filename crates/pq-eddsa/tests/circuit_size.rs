@@ -59,9 +59,7 @@ fn circuit_size_matches_the_blinding_measurement() {
 fn recommended_blinding_is_inside_the_measured_cliff() {
     /// Measured in the Task 8 spike: 2,132 is free, 2,133 is not.
     const MEASURED_CLIFF: usize = 2_132;
-    assert!(
-        RECOMMENDED_N_DUMMY_CONSTRAINTS <= MEASURED_CLIFF,
-        "RECOMMENDED_N_DUMMY_CONSTRAINTS ({RECOMMENDED_N_DUMMY_CONSTRAINTS}) exceeds the \
-         measured free cliff ({MEASURED_CLIFF}); re-measure before raising it"
-    );
+    // A compile-time check: raising the constant past the measured cliff should fail the
+    // build, not wait for someone to run the tests.
+    const _: () = assert!(RECOMMENDED_N_DUMMY_CONSTRAINTS <= MEASURED_CLIFF);
 }

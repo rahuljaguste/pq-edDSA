@@ -67,9 +67,17 @@ mod tests {
             two_p_bigint(),
             (NB::from(1u32) << TWO_P_PO2 as u32) - NB::from(TWO_P_SUBTRAHEND)
         );
-        // And its preconditions: limb-aligned, short subtrahend.
-        assert_eq!(TWO_P_PO2 % 64, 0);
-        assert!(TWO_P_SUBTRAHEND < u64::MAX);
+        // And the preconditions `PseudoMersenneModReduce` actually asserts
+        // (reduce.rs:117-118): the modulus power must be limb-aligned, and the
+        // subtrahend must fit within it. One limb is what keeps the reduction cheap.
+        assert_eq!(TWO_P_PO2 % 64, 0, "modulus_po2 must be limb-aligned");
+        const SUBTRAHEND_LIMBS: usize = 1;
+        const _: () = assert!(SUBTRAHEND_LIMBS * 64 <= TWO_P_PO2);
+        assert_eq!(
+            two_p_bigint().iter_u64_digits().count(),
+            4,
+            "the working modulus must occupy exactly N_LIMBS limbs"
+        );
     }
 
     /// `d` must satisfy `121666·d + 121665 ≡ 0 (mod p)`.
