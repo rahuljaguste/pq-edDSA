@@ -327,11 +327,16 @@ passes every positive test: it proves true statements correctly and false ones t
 ## Upstream contribution
 
 While porting, we found that `binius-field` does not compile for `wasm32-unknown-unknown`
-with `+simd128`, a module orphaned by a refactor. Submitted as
-[binius-zk/binius64#1993](https://github.com/binius-zk/binius64/pull/1993), with the
-measurement showing it is worth 0.7% on this circuit, so it is offered as a correctness
-fix rather than an optimisation. The demo does not need it: omit the flag and wasm32
-builds today.
+with `+simd128`, a module orphaned by a refactor. Submitted upstream as
+**[binius-zk/binius64#1993](https://github.com/binius-zk/binius64/pull/1993)**; the change
+itself is two insertions and twenty-one deletions, kept here as
+[`docs/binius64-wasm32-simd128.patch`](docs/binius64-wasm32-simd128.patch).
+
+It is offered as a correctness fix, not an optimisation, and the PR says so: with the fix
+applied, `+simd128` is worth 0.7% on this circuit. The demo does not need it at all — omit
+the flag and wasm32 builds today. The diagnosis, including a first attempt that was
+backwards, is in
+[`docs/notes/derisking-wasm32-and-blinding.md`](docs/notes/derisking-wasm32-and-blinding.md).
 
 ## Acknowledgements
 
