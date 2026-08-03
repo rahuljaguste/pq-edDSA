@@ -73,13 +73,12 @@ mod tests {
     use binius_circuits::{bignum::BigUint, sha512::sha512_fixed};
     use binius_core::{verify::verify_constraints, word::Word};
     use binius_frontend::CircuitBuilder;
+    use proptest::prelude::*;
     use sha2::{Digest, Sha512};
 
     use super::*;
     use crate::consts::N_LIMBS;
 
-    /// RFC 8032 section 7.1, TEST 1.
-    const SEED_HEX: &str = "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60";
 
     fn nb_to_limbs(v: &num_bigint::BigUint) -> [u64; N_LIMBS] {
         let mut out = [0u64; N_LIMBS];
@@ -89,22 +88,21 @@ mod tests {
         out
     }
 
-    /// The clamped scalar derived in-circuit must match the reference byte for byte.
-    ///
-    /// This is the test that would have caught the endianness bug: `sha512_fixed`
-    /// emits big-endian words, RFC 8032 reads the low half as a little-endian integer.
-    #[test]
-    fn clamped_scalar_matches_reference() {
-        let seed = hex::decode(SEED_HEX).unwrap();
-
-        // Reference: SHA-512(seed), low 32 bytes, clamp, read little-endian.
-        let h = Sha512::digest(&seed);
+    /// The reference derivation: SHA-512(seed), low 32 bytes, clamp, read little-endian.
+    fn reference_clamped_scalar(seed: &[u8; 32]) -> num_bigint::BigUint {
+        let h = Sha512::digest(seed);
         let mut a = [0u8; 32];
         a.copy_from_slice(&h[..32]);
         a[0] &= 248;
         a[31] &= 127;
         a[31] |= 64;
-        let expected = num_bigint::BigUint::from_bytes_le(&a);
+        num_bigint::BigUint::from_bytes_le(&a)
+    }
+
+    /// Derive in-circuit and compare against the reference. Returns the limbs so callers
+    /// can assert further.
+    fn assert_derivation_matches(seed: &[u8; 32]) {
+        let expected = reference_clamped_scalar(seed);
 
         let b = CircuitBuilder::new();
         let msg: Vec<_> = (0..4).map(|_| b.add_witness()).collect();
@@ -122,7 +120,55 @@ mod tests {
         let got: Vec<u64> = out.limbs.iter().map(|l| w[*l].as_u64()).collect();
         verify_constraints(cs.constraint_system(), &w.into_value_vec()).unwrap();
 
-        assert_eq!(nb_to_limbs(&expected).to_vec(), got);
+        assert_eq!(
+            nb_to_limbs(&expected).to_vec(),
+            got,
+            "derivation mismatch for seed {}",
+            hex::encode(seed)
+        );
+    }
+
+    /// Every seed published in RFC 8032 section 7.1.
+    ///
+    /// One vector is weak evidence — a subtly wrong implementation can coincide with a
+    /// single input. These are the spec's own, so a disagreement is unambiguous.
+    #[test]
+    fn clamped_scalar_matches_reference_on_rfc8032_vectors() {
+        const SEEDS: &[&str] = &[
+            // TEST 1
+            "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+            // TEST 2
+            "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
+            // TEST 3
+            "c5aa8df43f9f837bedb7442f31dcb7b166d38535076f094b85ce3a2e0b4458f7",
+            // TEST 1024
+            "f5e5767cf153319517630f226876b86c8160cc583bc013744c6bf255f5cc0ee5",
+            // TEST SHA(abc)
+            "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42",
+        ];
+
+        for hexed in SEEDS {
+            let seed: [u8; 32] = hex::decode(hexed).unwrap().try_into().unwrap();
+            assert_derivation_matches(&seed);
+        }
+    }
+
+    /// All-zero and all-ones seeds, which no published vector covers.
+    #[test]
+    fn clamped_scalar_matches_reference_on_extreme_seeds() {
+        assert_derivation_matches(&[0u8; 32]);
+        assert_derivation_matches(&[0xFFu8; 32]);
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(16))]
+
+        /// Random seeds. Stronger than any fixed vector set: a byte-order error that
+        /// happened to survive the published vectors cannot survive arbitrary input.
+        #[test]
+        fn clamped_scalar_matches_reference_on_random_seeds(seed in proptest::array::uniform32(any::<u8>())) {
+            assert_derivation_matches(&seed);
+        }
     }
 
     /// Clamping must clear bits 0-2 and 255, and set bit 254 — checked against an
