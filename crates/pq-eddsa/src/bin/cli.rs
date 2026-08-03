@@ -10,7 +10,7 @@ use binius_verifier::{
 };
 use clap::{Parser, Subcommand};
 use pq_eddsa::{
-    circuit::{PqEddsaCircuit, PublicInputs, public_words},
+    circuit::{PqEddsaCircuit, PublicInputs, Relation, public_words},
     config::{ProofConfig, SECURITY_BITS},
 };
 
@@ -19,6 +19,23 @@ use pq_eddsa::{
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
+}
+
+/// Which form of the relation to prove. `det` matches PQChain and is used for benchmark
+/// parity; `rand` is the relation the paper's Theorem 2 is proved over.
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+enum RelationArg {
+    Det,
+    Rand,
+}
+
+impl From<RelationArg> for Relation {
+    fn from(r: RelationArg) -> Self {
+        match r {
+            RelationArg::Det => Relation::Det,
+            RelationArg::Rand => Relation::Rand,
+        }
+    }
 }
 
 #[derive(Subcommand)]
@@ -36,6 +53,10 @@ enum Cmd {
         out: Option<String>,
         #[arg(long, default_value_t = 1)]
         log_inv_rate: usize,
+        /// Relation to prove. `rand` randomises hx with a fresh secret, which is what
+        /// the paper's security proof requires; `det` matches PQChain.
+        #[arg(long, value_enum, default_value = "det")]
+        relation: RelationArg,
     },
     /// Verify a proof against public inputs.
     Verify {
@@ -49,9 +70,15 @@ enum Cmd {
         hx: String,
         #[arg(long, default_value_t = 1)]
         log_inv_rate: usize,
+        /// Must match the relation the proof was produced under.
+        #[arg(long, value_enum, default_value = "det")]
+        relation: RelationArg,
     },
     /// Print circuit statistics without proving.
-    Stat,
+    Stat {
+        #[arg(long, value_enum, default_value = "det")]
+        relation: RelationArg,
+    },
 }
 
 fn parse_hex<const N: usize>(s: &str, what: &str) -> Result<[u8; N]> {
@@ -65,34 +92,38 @@ fn parse_hex<const N: usize>(s: &str, what: &str) -> Result<[u8; N]> {
 
 fn main() -> Result<()> {
     match Cli::parse().cmd {
-        Cmd::Stat => {
+        Cmd::Stat { relation } => {
             let b = CircuitBuilder::new();
-            let _ = PqEddsaCircuit::build(&b);
+            let _ = PqEddsaCircuit::build_with(&b, relation.into());
             let cs = b.build();
             let s = cs.constraint_system();
             println!("AND constraints:  {}", s.n_and_constraints());
             println!("IMUL constraints: {}", s.imul_constraints.len());
             println!("private wires:    {}", s.n_private);
             println!("soundness:        {SECURITY_BITS} bits classical");
+            println!("relation:         {:?}", Relation::from(relation));
         }
 
-        Cmd::Prove { seed, msg, out, log_inv_rate } => {
+        Cmd::Prove { seed, msg, out, log_inv_rate, relation } => {
             let seed: [u8; 32] = parse_hex(&seed, "seed")?;
             let msg: [u8; 32] = match &msg {
                 Some(m) => parse_hex(m, "msg")?,
                 None => [0u8; 32],
             };
-            let pi = PqEddsaCircuit::public_inputs(&seed, &msg);
-
-            // Fail fast and readably rather than emitting an unprovable system.
-            PqEddsaCircuit::check_relation(&seed, &msg, &pi)
-                .context("witness does not satisfy the relation")?;
-
             let b = CircuitBuilder::new();
-            let circuit = PqEddsaCircuit::build(&b);
+            let circuit = PqEddsaCircuit::build_with(&b, relation.into());
             let cs = b.build();
             let mut w = cs.new_witness_filler();
-            circuit.populate(&mut w, &seed, &msg);
+
+            // rx is sampled here and never leaves this process — it is witness, not
+            // statement. Only hx is published.
+            let rx = circuit.populate_randomised(&mut w, &seed, &msg)?;
+            let pi = circuit.public_inputs_with_rx(&seed, &msg, &rx);
+
+            // Fail fast and readably rather than emitting an unprovable system.
+            let rx_ref = matches!(Relation::from(relation), Relation::Rand).then_some(&rx);
+            PqEddsaCircuit::check_relation_with_rx(&seed, &msg, rx_ref, &pi)
+                .context("witness does not satisfy the relation")?;
             cs.populate_wire_witness(&mut w)
                 .map_err(|e| anyhow::anyhow!("witness population failed: {e:?}"))?;
             let witness = w.into_value_vec();
@@ -124,7 +155,7 @@ fn main() -> Result<()> {
             }
         }
 
-        Cmd::Verify { proof, pk, msg, hx, log_inv_rate } => {
+        Cmd::Verify { proof, pk, msg, hx, log_inv_rate, relation } => {
             let pi = PublicInputs {
                 pk: parse_hex(&pk, "pk")?,
                 msg: match &msg {
@@ -136,7 +167,7 @@ fn main() -> Result<()> {
             let proof = std::fs::read(&proof).context("reading proof")?;
 
             let b = CircuitBuilder::new();
-            let circuit = PqEddsaCircuit::build(&b);
+            let circuit = PqEddsaCircuit::build_with(&b, relation.into());
             let cs = b.build();
 
             // Reconstruct the public words from public data alone — never from a

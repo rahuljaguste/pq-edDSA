@@ -111,8 +111,8 @@ fn hx_depends_on_both_inputs() {
     let s2 = seed_of(VECTORS[1].0);
     let m1 = [0u8; 32];
     let m2 = [1u8; 32];
-    assert_ne!(derive_hx(&s1, &m1), derive_hx(&s1, &m2), "hx ignored the message");
-    assert_ne!(derive_hx(&s1, &m1), derive_hx(&s2, &m1), "hx ignored the seed");
+    assert_ne!(derive_hx(&s1, &m1, None), derive_hx(&s1, &m2, None), "hx ignored the message");
+    assert_ne!(derive_hx(&s1, &m1, None), derive_hx(&s2, &m1, None), "hx ignored the seed");
 }
 
 /// The verifier's reconstruction of the public section must match the prover's exactly.

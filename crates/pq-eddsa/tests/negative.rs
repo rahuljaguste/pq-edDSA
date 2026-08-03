@@ -246,3 +246,41 @@ fn check_relation_accepts_only_consistent_statements() {
         "missed a seed that does not derive pk"
     );
 }
+
+/// Every word of `hx` must be constrained — not just the ones a hand-written test
+/// happens to poke.
+///
+/// Added after a shell-level check appeared to show a tampered final nibble verifying.
+/// It did not — the expansion was faulty — but "I could not reproduce it" is a poor
+/// substitute for covering all eight words explicitly.
+#[test]
+fn every_hx_word_is_constrained() {
+    let seed = seed_of(SEED_A);
+    let msg = [3u8; 32];
+
+    for byte in [0usize, 7, 8, 31, 32, 55, 56, 63] {
+        let mut pi = PqEddsaCircuit::public_inputs(&seed, &msg);
+        pi.hx[byte] ^= 1;
+        assert!(
+            !accepts(&seed, &pi),
+            "hx byte {byte} (word {}) is not constrained",
+            byte / 8
+        );
+        // And the low nibble specifically, which is what the shell check mangled.
+        let mut pi2 = PqEddsaCircuit::public_inputs(&seed, &msg);
+        pi2.hx[byte] ^= 0x0F;
+        assert!(!accepts(&seed, &pi2), "hx byte {byte} low nibble unconstrained");
+    }
+}
+
+/// Likewise every word of `pk`.
+#[test]
+fn every_pk_word_is_constrained() {
+    let seed = seed_of(SEED_A);
+    let msg = [3u8; 32];
+    for byte in [0usize, 7, 8, 15, 16, 23, 24, 31] {
+        let mut pi = PqEddsaCircuit::public_inputs(&seed, &msg);
+        pi.pk[byte] ^= 1;
+        assert!(!accepts(&seed, &pi), "pk byte {byte} is not constrained");
+    }
+}
