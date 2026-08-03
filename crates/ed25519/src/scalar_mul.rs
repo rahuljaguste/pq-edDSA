@@ -564,3 +564,143 @@ mod shape {
         );
     }
 }
+
+#[cfg(test)]
+mod soundness {
+    use binius_core::verify::verify_constraints;
+    use binius_frontend::CircuitBuilder;
+
+    use super::*;
+
+    /// The recoding's magnitude must never index past the table.
+    ///
+    /// `multi_wire_multiplex` uses `log2_ceil(33) = 6` selector bits, so a magnitude
+    /// above 32 would index past a 33-entry table and select something undefined. The
+    /// magnitude is derived, so a prover cannot choose it — but it must be *provably* in
+    /// range, not merely usually so.
+    ///
+    /// Checked exhaustively over every reachable `(raw, carry)` pair rather than argued.
+    #[test]
+    fn recoded_magnitude_never_exceeds_the_table() {
+        for w in [3usize, 4, 5, 6, 7] {
+            let half = 1i64 << (w - 1);
+            let full = 1i64 << w;
+            let table_max = (1i64 << (w - 1)) as usize; // |d| in [0, 2^(w-1)]
+
+            for raw in 0..full {
+                for carry in 0..=1i64 {
+                    let d = raw + carry;
+                    let borrow = if d >= half { 1 } else { 0 };
+                    let magnitude = if borrow == 1 { full - d } else { d };
+
+                    assert!(
+                        (0..=table_max as i64).contains(&magnitude),
+                        "w={w} raw={raw} carry={carry}: magnitude {magnitude} \
+                         outside [0, {table_max}]"
+                    );
+                    // And the signed digit is in the range the tables assume.
+                    let digit = d - borrow * full;
+                    assert!(
+                        (-half..half).contains(&digit),
+                        "w={w} raw={raw} carry={carry}: digit {digit} outside range"
+                    );
+                }
+            }
+        }
+    }
+
+    /// The recoding's final carry is dropped in-circuit, so it must always be zero.
+    ///
+    /// It is: the scalar is four limbs, so it is below `2^256`, while the windows cover
+    /// `(n_windows + 1) * w >= 258` bits. The top window's raw digit is therefore zero and
+    /// its input is just the incoming carry, which is at most 1 — well below the
+    /// `2^(w-1)` threshold that would propagate further.
+    ///
+    /// Verified against the largest possible four-limb scalar, not merely a typical one.
+    #[test]
+    fn final_carry_is_always_zero() {
+        let max_scalar = (NB::from(1u32) << 256u32) - NB::from(1u32);
+        for w in [3usize, 4, 5, 6, 7] {
+            let digits = recode_signed(&max_scalar, w);
+            assert_eq!(digits.len(), n_windows(w) + 1);
+
+            // Replay the carry chain and confirm it terminates at zero.
+            let half = 1i64 << (w - 1);
+            let full = 1i64 << w;
+            let mut carry = 0i64;
+            for i in 0..digits.len() {
+                let mut raw = 0i64;
+                for bit in 0..w {
+                    if max_scalar.bit((i * w + bit) as u64) {
+                        raw |= 1 << bit;
+                    }
+                }
+                let d = raw + carry;
+                carry = if d >= half { 1 } else { 0 };
+                let _ = d - carry * full;
+            }
+            assert_eq!(carry, 0, "w={w}: final carry escaped the last window");
+        }
+    }
+
+    /// The digits must recompose to the scalar. If they did not, the circuit would prove
+    /// `k' · G` for some `k' != k` while claiming `k`.
+    #[test]
+    fn signed_digits_recompose_to_the_scalar() {
+        let p = crate::consts::p_bigint();
+        for w in [3usize, 4, 5, 6] {
+            for seed in [1u8, 0x37, 0x80, 0xFF] {
+                let mut bytes = [seed; 32];
+                crate::host::clamp_bytes(&mut bytes);
+                let k = NB::from_bytes_le(&bytes);
+
+                let digits = recode_signed(&k, w);
+                // sum(d_i * 2^(i*w)) must equal k exactly, over the signed integers.
+                let acc: num_bigint::BigInt = digits
+                    .iter()
+                    .enumerate()
+                    .map(|(i, d)| {
+                        num_bigint::BigInt::from(*d) << (i * w) as u32
+                    })
+                    .sum();
+                assert_eq!(
+                    acc,
+                    num_bigint::BigInt::from(k.clone()),
+                    "w={w} seed={seed:#x}: digits do not recompose"
+                );
+                let _ = &p;
+            }
+        }
+    }
+
+    /// A scalar of zero must give the identity, not a spurious point.
+    ///
+    /// The recoding of zero is all-zero digits, every window selects table entry 0 (the
+    /// identity), and complete addition must absorb 44 identity additions.
+    #[test]
+    fn zero_scalar_gives_identity() {
+        let b = CircuitBuilder::new();
+        let f = Fp::new(&b);
+        let s = BigUint::new_witness(&b, N_LIMBS);
+        let out = mul_basepoint(&b, &f, &s);
+
+        let cs = b.build();
+        let mut w = cs.new_witness_filler();
+        s.populate_limbs(&mut w, &[0u64; N_LIMBS]);
+        cs.populate_wire_witness(&mut w).unwrap();
+        let read = |v: &BigUint| -> NB {
+            let mut a = NB::from(0u32);
+            for (i, l) in v.limbs.iter().enumerate() {
+                a += NB::from(w[*l].as_u64()) << (64 * i as u32);
+            }
+            a % crate::consts::p_bigint()
+        };
+        let (x, y, z) = (read(&out.x), read(&out.y), read(&out.z));
+        verify_constraints(cs.constraint_system(), &w.into_value_vec()).unwrap();
+
+        let p = crate::consts::p_bigint();
+        let zinv = z.modpow(&(&p - NB::from(2u32)), &p);
+        assert_eq!((x * &zinv) % &p, NB::from(0u32), "identity x");
+        assert_eq!((y * &zinv) % &p, NB::from(1u32), "identity y");
+    }
+}

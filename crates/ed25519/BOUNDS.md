@@ -234,10 +234,19 @@ the sign. Without the assertion a prover could choose the compressed public key'
 freely.
 
 Nothing in the honest test suite would notice if the assertion were deleted, because the
-honest hint never produces a non-canonical value. `canonicality_assertion_rejects_the_other_representative`
-therefore installs a deliberately malicious hint and checks both directions: without the
-assertion the bad value is accepted (confirming the hole is real), with it the constraint
-system rejects.
+honest hint never produces a non-canonical value. `to_affine_rejects_a_non_canonical_hint`
+therefore installs a deliberately malicious hint and checks both directions, for `x_aff`
+and `y_aff` separately.
+
+**This test was initially wrong in an instructive way.** Its first version rebuilt the
+constraints alongside `to_affine` rather than calling it, so it verified the *pattern*
+while leaving the *deployment* uncovered: the entire suite passed with the canonicality
+assertion deleted from `to_affine` itself. `to_affine_with_hint` now exists so the test
+drives the real function with only the hint swapped. Verified by mutation — deleting
+either assertion is caught.
+
+The general shape of the error is worth remembering: a negative test that reconstructs the
+logic it is checking proves only that the logic *can* work, not that it *is* wired in.
 
 ## Does Rayon help?
 

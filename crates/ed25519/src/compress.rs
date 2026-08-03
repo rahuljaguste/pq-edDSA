@@ -93,6 +93,21 @@ impl Hint for AffineHint {
 ///
 /// Returns canonical `(x, y)` in `[0, p)`.
 pub fn to_affine(b: &CircuitBuilder, f: &Fp, pt: &Point) -> (BigUint, BigUint) {
+    to_affine_with_hint(b, f, pt, AffineHint)
+}
+
+/// [`to_affine`] with the hint injected.
+///
+/// Exists so tests can drive the **real** constraint path with a dishonest hint. An
+/// earlier version of the malicious-hint test rebuilt the constraints alongside this
+/// function instead, which meant it verified the *pattern* while leaving the *deployment*
+/// uncovered: the whole suite passed with the canonicality assertion deleted from here.
+pub fn to_affine_with_hint<H: Hint>(
+    b: &CircuitBuilder,
+    f: &Fp,
+    pt: &Point,
+    hint: H,
+) -> (BigUint, BigUint) {
     let inputs: Vec<Wire> = pt
         .x
         .limbs
@@ -101,7 +116,7 @@ pub fn to_affine(b: &CircuitBuilder, f: &Fp, pt: &Point) -> (BigUint, BigUint) {
         .chain(&pt.z.limbs)
         .copied()
         .collect();
-    let out = b.call_hint(AffineHint, &[N_LIMBS], &inputs);
+    let out = b.call_hint(hint, &[N_LIMBS], &inputs);
 
     let x_aff = BigUint { limbs: out[0..N_LIMBS].to_vec() };
     let y_aff = BigUint { limbs: out[N_LIMBS..2 * N_LIMBS].to_vec() };
@@ -227,6 +242,11 @@ mod tests {
 
     /// A hint that returns the *other* representative, `x + p`, instead of the canonical
     /// one. Used to prove the canonicality assertion is load-bearing.
+    thread_local! {
+        /// Which coordinate `MaliciousAffineHint` corrupts.
+        static CORRUPT_X: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
+    }
+
     struct MaliciousAffineHint;
 
     impl Hint for MaliciousAffineHint {
@@ -250,9 +270,14 @@ mod tests {
             let z = rd(&inputs[2 * N_LIMBS..3 * N_LIMBS]);
             let zinv = z.modpow(&(&p - NB::from(2u32)), &p);
 
-            // Same residue, non-canonical representative.
-            let bad_x = ((x * &zinv) % &p) + &p;
-            let good_y = (y * &zinv) % &p;
+            // Same residue, non-canonical representative. Which coordinate is corrupted
+            // is chosen by the caller so each canonicality assertion has its own cover.
+            let corrupt_x = CORRUPT_X.with(|c| c.get());
+            let (bad_x, good_y) = if corrupt_x {
+                (((x * &zinv) % &p) + &p, (y * &zinv) % &p)
+            } else {
+                ((x * &zinv) % &p, ((y * &zinv) % &p) + &p)
+            };
             let wr = |v: &NB, out: &mut [Word]| {
                 for slot in out.iter_mut() {
                     *slot = Word::ZERO;
@@ -273,55 +298,43 @@ mod tests {
     /// residue — but flips the low bit that compression encodes as the sign. Left
     /// unconstrained, that lets a prover choose the compressed key's sign bit freely.
     ///
-    /// This test is what makes the canonicality assertion non-defensive: with the
-    /// assertion the malicious hint is rejected, and nothing else in the suite would
-    /// notice if it were removed, because the honest hint never produces a bad value.
+    /// This drives the **real** `to_affine`, with only the hint swapped. An earlier
+    /// version rebuilt the constraints alongside it, which verified the pattern but not
+    /// the deployment — the whole suite passed with the assertion deleted from
+    /// `to_affine`. Injecting the hint is what makes this test load-bearing.
     #[test]
-    fn canonicality_assertion_rejects_the_other_representative() {
-        let p = p_bigint();
+    fn to_affine_rejects_a_non_canonical_hint() {
         let g = crate::host::basepoint();
+        let p = p_bigint();
 
-        let build = |with_assertion: bool| {
+        let build = |malicious: bool| {
             let b = CircuitBuilder::new();
             let f = Fp::new(&b);
-            let x = BigUint::new_witness(&b, N_LIMBS);
-            let y = BigUint::new_witness(&b, N_LIMBS);
-            let z = BigUint::new_witness(&b, N_LIMBS);
-
-            let inputs: Vec<Wire> =
-                x.limbs.iter().chain(&y.limbs).chain(&z.limbs).copied().collect();
-            let out = b.call_hint(MaliciousAffineHint, &[N_LIMBS], &inputs);
-            let x_aff = BigUint { limbs: out[0..N_LIMBS].to_vec() };
-            let y_aff = BigUint { limbs: out[N_LIMBS..2 * N_LIMBS].to_vec() };
-
-            // The residue checks the malicious value still satisfies.
-            f.assert_congruent(&b, "affine_x", &f.mul(&b, &x_aff, &z), &x);
-            f.assert_congruent(&b, "affine_y", &f.mul(&b, &y_aff, &z), &y);
-
-            if with_assertion {
-                let p_const = f.constant(&b, &p_bigint());
-                b.assert_true("x_aff_canonical", biguint_lt(&b, &x_aff, &p_const));
+            let pt = Point {
+                x: f.constant(&b, &g.0),
+                y: f.constant(&b, &g.1),
+                z: f.constant(&b, &NB::from(1u32)),
+                t: f.constant(&b, &((&g.0 * &g.1) % &p)),
+            };
+            if malicious {
+                let _ = to_affine_with_hint(&b, &f, &pt, MaliciousAffineHint);
+            } else {
+                let _ = to_affine_with_hint(&b, &f, &pt, AffineHint);
             }
-
             let cs = b.build();
             let mut w = cs.new_witness_filler();
-            x.populate_limbs(&mut w, &to_limbs(&g.0));
-            y.populate_limbs(&mut w, &to_limbs(&g.1));
-            z.populate_limbs(&mut w, &to_limbs(&NB::from(1u32)));
             cs.populate_wire_witness(&mut w).is_ok()
         };
 
-        // Without the assertion the malicious value is accepted — this is the hole.
-        assert!(
-            build(false),
-            "control failed: the residue checks should accept x + p"
-        );
-        // With it, rejected.
-        assert!(
-            !build(true),
-            "canonicality assertion did not reject a non-canonical representative"
-        );
-        let _ = p;
+        for (corrupt_x, which) in [(true, "x_aff"), (false, "y_aff")] {
+            CORRUPT_X.with(|c| c.set(corrupt_x));
+            assert!(build(false), "control: the honest hint must be accepted");
+            assert!(
+                !build(true),
+                "to_affine accepted a non-canonical {which}; its canonicality assertion \
+                 is missing or not load-bearing"
+            );
+        }
     }
 
     /// A non-canonical `x_aff` (i.e. `x + p`) satisfies the multiplication check but has
