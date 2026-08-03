@@ -240,13 +240,13 @@ mod tests {
         );
     }
 
-    /// A hint that returns the *other* representative, `x + p`, instead of the canonical
-    /// one. Used to prove the canonicality assertion is load-bearing.
     thread_local! {
         /// Which coordinate `MaliciousAffineHint` corrupts.
         static CORRUPT_X: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
     }
 
+    /// A hint returning the *other* representative — `coordinate + p` — instead of the
+    /// canonical one. Used to prove the canonicality assertions are load-bearing.
     struct MaliciousAffineHint;
 
     impl Hint for MaliciousAffineHint {
