@@ -1,6 +1,7 @@
-//! Prove and verify the `R_det` relation.
+//! Prove and verify the `R_det` and `R_rand` relations.
 //!
-//! Argument layout matches SoundnessLabs/PQChain so the two can be compared directly.
+//! Argument layout matches SoundnessLabs/PQChain so the two can be compared directly,
+//! which is also why `--relation` defaults to `det`.
 
 use anyhow::{Context, Result, bail};
 use binius_frontend::CircuitBuilder;
@@ -15,7 +16,16 @@ use pq_eddsa::{
 };
 
 #[derive(Parser)]
-#[command(name = "pq-eddsa", about = "Prove EdDSA key ownership from a seed, in zero knowledge")]
+#[command(
+    name = "pq-eddsa",
+    about = "Prove EdDSA key ownership from a seed, in zero knowledge",
+    long_about = "Prove EdDSA key ownership from a seed, in zero knowledge.\n\n\
+        UNAUDITED RESEARCH PROOF OF CONCEPT. Carries 96-bit classical soundness, below \
+        the ~128 bits you should want in production, and its zero-knowledge property has \
+        not been audited. Use throwaway keys only.\n\n\
+        --seed puts the key on the command line, where your shell records it in history. \
+        Prefer --seed-file, or `--seed-file -` to read it from stdin."
+)]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -42,9 +52,14 @@ impl From<RelationArg> for Relation {
 enum Cmd {
     /// Generate a proof.
     Prove {
-        /// 32-byte seed, hex. PRIVATE — never leaves this process.
+        /// 32-byte seed, hex. PRIVATE — the proof never reveals it, but passing it here
+        /// puts it in your shell history. Prefer --seed-file.
+        #[arg(long, conflicts_with = "seed_file", required_unless_present = "seed_file")]
+        seed: Option<String>,
+        /// Read the 32-byte hex seed from a file, or from stdin with `-`. Keeps the seed
+        /// out of argv, and so out of shell history and `ps`.
         #[arg(long)]
-        seed: String,
+        seed_file: Option<String>,
         /// 32-byte message, hex. Defaults to all zeros.
         #[arg(long)]
         msg: Option<String>,
@@ -82,12 +97,35 @@ enum Cmd {
 }
 
 fn parse_hex<const N: usize>(s: &str, what: &str) -> Result<[u8; N]> {
-    let raw = hex::decode(s.trim_start_matches("0x"))
+    // Trim before decoding: a seed read from a file arrives with a trailing newline, and
+    // a pasted one often carries stray whitespace.
+    let raw = hex::decode(s.trim().trim_start_matches("0x"))
         .with_context(|| format!("{what} is not valid hex"))?;
     if raw.len() != N {
         bail!("{what} must be {N} bytes, got {}", raw.len());
     }
     Ok(raw.try_into().unwrap())
+}
+
+/// Resolve `--seed` / `--seed-file` into hex. Clap guarantees exactly one is present.
+fn read_seed(seed: Option<String>, seed_file: Option<String>) -> Result<String> {
+    match (seed, seed_file) {
+        (Some(hex), None) => Ok(hex),
+        (None, Some(path)) if path == "-" => {
+            let mut buf = String::new();
+            std::io::Read::read_to_string(&mut std::io::stdin(), &mut buf)
+                .context("reading seed from stdin")?;
+            Ok(buf)
+        }
+        (None, Some(path)) => {
+            std::fs::read_to_string(&path).with_context(|| format!("reading seed from {path}"))
+        }
+        // Unreachable via the CLI: `conflicts_with` and `required_unless_present` make
+        // these states unrepresentable. Reported rather than panicked on so a future
+        // change to those attributes fails loudly instead of aborting.
+        (Some(_), Some(_)) => bail!("give --seed or --seed-file, not both"),
+        (None, None) => bail!("one of --seed or --seed-file is required"),
+    }
 }
 
 fn main() -> Result<()> {
@@ -104,8 +142,8 @@ fn main() -> Result<()> {
             println!("relation:         {:?}", Relation::from(relation));
         }
 
-        Cmd::Prove { seed, msg, out, log_inv_rate, relation } => {
-            let seed: [u8; 32] = parse_hex(&seed, "seed")?;
+        Cmd::Prove { seed, seed_file, msg, out, log_inv_rate, relation } => {
+            let seed: [u8; 32] = parse_hex(&read_seed(seed, seed_file)?, "seed")?;
             let msg: [u8; 32] = match &msg {
                 Some(m) => parse_hex(m, "msg")?,
                 None => [0u8; 32],
@@ -188,4 +226,59 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SEED_HEX: &str = "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60";
+
+    /// A seed read from a file arrives with a trailing newline; without trimming, the
+    /// --seed-file path would reject every seed anyone actually stores in a file.
+    #[test]
+    fn parse_hex_tolerates_surrounding_whitespace() {
+        let want: [u8; 32] = parse_hex(SEED_HEX, "seed").unwrap();
+        assert_eq!(parse_hex::<32>(&format!("{SEED_HEX}\n"), "seed").unwrap(), want);
+        assert_eq!(parse_hex::<32>(&format!("  {SEED_HEX}  \n"), "seed").unwrap(), want);
+        assert_eq!(parse_hex::<32>(&format!("0x{SEED_HEX}\n"), "seed").unwrap(), want);
+    }
+
+    #[test]
+    fn parse_hex_still_rejects_bad_input() {
+        assert!(parse_hex::<32>("nothex", "seed").is_err());
+        assert!(parse_hex::<32>(&SEED_HEX[..62], "seed").is_err(), "short seed accepted");
+        assert!(parse_hex::<32>(&format!("{SEED_HEX}ff"), "seed").is_err(), "long seed accepted");
+        // Internal whitespace is not whitespace to trim; it is a malformed seed.
+        assert!(parse_hex::<32>("9d61 b19d", "seed").is_err());
+    }
+
+    #[test]
+    fn read_seed_prefers_the_explicit_hex() {
+        assert_eq!(read_seed(Some(SEED_HEX.into()), None).unwrap(), SEED_HEX);
+    }
+
+    #[test]
+    fn read_seed_reads_a_file() {
+        let path = std::env::temp_dir().join("pq-eddsa-cli-seed-test.hex");
+        std::fs::write(&path, format!("{SEED_HEX}\n")).unwrap();
+        let got = read_seed(None, Some(path.to_string_lossy().into_owned())).unwrap();
+        std::fs::remove_file(&path).ok();
+        assert_eq!(parse_hex::<32>(&got, "seed").unwrap(), parse_hex::<32>(SEED_HEX, "seed").unwrap());
+    }
+
+    #[test]
+    fn read_seed_reports_a_missing_file_rather_than_panicking() {
+        let r = read_seed(None, Some("/nonexistent/pq-eddsa/seed".into()));
+        assert!(r.is_err());
+        assert!(format!("{:#}", r.unwrap_err()).contains("reading seed from"));
+    }
+
+    /// Clap makes these unrepresentable; the arms exist so a future change to the
+    /// attributes surfaces as an error rather than a panic.
+    #[test]
+    fn read_seed_rejects_neither_and_both() {
+        assert!(read_seed(None, None).is_err());
+        assert!(read_seed(Some(SEED_HEX.into()), Some("f".into())).is_err());
+    }
 }

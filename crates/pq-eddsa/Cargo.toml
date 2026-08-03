@@ -3,7 +3,7 @@ name = "pq-eddsa"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "PQ-EdDSA R_det relation on Binius64"
+description = "PQ-EdDSA relations on Binius64 — unaudited research proof of concept"
 
 [dependencies]
 ed25519-binius = { path = "../ed25519" }

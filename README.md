@@ -172,15 +172,21 @@ identical `hx`.
 # Circuit statistics
 cargo run --release --bin cli -- stat
 
-# Prove (seed is private and never leaves the process)
-cargo run --release --bin cli -- prove \
-  --seed 9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60 \
-  --out proof.bin
+# Prove. The seed is the witness: it is never published and the proof does not
+# reveal it. Read it from a file or stdin rather than argv --
+# `--seed <hex>` would land in your shell history.
+cargo run --release --bin cli -- prove --seed-file seed.hex --out proof.bin
+printf %s "$SEED" | cargo run --release --bin cli -- prove --seed-file - --out proof.bin
 
 # Verify against public inputs only
 cargo run --release --bin cli -- verify \
   --proof proof.bin --pk <hex> --hx <hex>
 ```
+
+`--seed <hex>` still exists, and the examples elsewhere in this README use it with RFC 8032
+test vector 1 — a published seed with nothing to protect. For a seed you care about, use
+`--seed-file`. Zero-knowledge protects the seed from the *verifier*; it does nothing about
+the shell you typed it into.
 
 The verifier reconstructs the circuit's public input words from `(pk, msg, hx)` alone
 rather than trusting a prover-supplied blob — a proof is valid for *whatever* public input
@@ -300,7 +306,7 @@ The interesting decisions, with measurements, are in
 
 ## Testing
 
-86 tests. The suite is built around negative tests, because an under-constrained circuit
+92 tests. The suite is built around negative tests, because an under-constrained circuit
 passes every positive test — it proves true statements correctly and false ones too.
 
 - Differential against `curve25519-dalek` at every window size, plus RFC 8032 vectors.

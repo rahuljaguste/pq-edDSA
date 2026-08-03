@@ -3,7 +3,7 @@ name = "pq-eddsa-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Browser bindings for PQ-EdDSA proving on Binius64"
+description = "Browser bindings for PQ-EdDSA proving on Binius64 — unaudited research proof of concept"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
