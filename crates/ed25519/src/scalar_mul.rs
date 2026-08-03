@@ -75,10 +75,6 @@ pub fn host_comb_tables(w: usize) -> Vec<Vec<Affine>> {
     tables
 }
 
-/// Table for a single window. Prefer [`host_comb_tables`] when more than one is needed.
-pub fn host_comb_table(i: usize, w: usize) -> Vec<Affine> {
-    host_comb_tables(w).swap_remove(i)
-}
 
 /// All windows' tables as circuit constants in niels form.
 fn comb_tables(b: &CircuitBuilder, f: &Fp, w: usize) -> Vec<Vec<Niels>> {
@@ -213,14 +209,14 @@ mod tests {
     #[test]
     fn comb_tables_hold_correct_multiples() {
         for w in [3usize, 4, 5] {
-            let table = host_comb_table(0, w);
+            let tables = host_comb_tables(w);
+            let table = &tables[0];
             for (d, entry) in table.iter().enumerate() {
                 let expected = if d == 0 { identity() } else { host_mul(&NB::from(d as u64)) };
                 assert_eq!(*entry, expected, "w={w} window=0 digit={d}");
             }
             // Window 1's base must be (2^w)·G.
-            let t1 = host_comb_table(1, w);
-            assert_eq!(t1[1], host_mul(&NB::from(1u64 << w)), "w={w} window=1 base");
+            assert_eq!(tables[1][1], host_mul(&NB::from(1u64 << w)), "w={w} window=1 base");
         }
     }
 
@@ -432,5 +428,63 @@ mod prove_sweep {
             println!("  {w}  {and:<7} {imul:<7} {ms:<10} {}", size / 1024);
         }
         println!();
+    }
+}
+
+#[cfg(test)]
+mod shape {
+    use binius_frontend::CircuitBuilder;
+
+    use super::*;
+
+    /// The constraint system must not depend on the scalar.
+    ///
+    /// This is the module where that property actually matters. PQChain shipped a bug of
+    /// exactly this class — `fix/ed25519-scalar-mul-secret-leak`, where the scalar
+    /// multiplication's constraint graph varied with the secret — and fixed it by hand
+    /// with oblivious muxes.
+    ///
+    /// In Binius64 the property is structural rather than earned: `CircuitBuilder` fixes
+    /// the graph before any witness exists, so a branch on a secret is not expressible.
+    /// That is precisely why it is worth asserting — a regression could only arrive via
+    /// someone reintroducing host-side branching on a scalar value, which this catches.
+    #[test]
+    fn circuit_shape_is_independent_of_the_scalar() {
+        let build = || {
+            let b = CircuitBuilder::new();
+            let f = Fp::new(&b);
+            let s = BigUint::new_witness(&b, N_LIMBS);
+            let _ = mul_basepoint(&b, &f, &s);
+            let cs = b.build();
+            let sys = cs.constraint_system();
+            (
+                sys.n_and_constraints(),
+                sys.imul_constraints.len(),
+                sys.zero_constraints.len(),
+                sys.n_private,
+                sys.constants.len(),
+            )
+        };
+        assert_eq!(build(), build(), "circuit shape is not deterministic");
+    }
+
+    /// Distinct scalars must give distinct results — a sanity check that the comb is not
+    /// accidentally ignoring some of its digits.
+    #[test]
+    fn distinct_scalars_give_distinct_points() {
+        use crate::testutil::compress;
+        let a = (NB::from(1u32) << 200u32) + NB::from(12345u64);
+        let b_ = (NB::from(1u32) << 200u32) + NB::from(12346u64);
+        assert_ne!(
+            compress(&host_comb_mul(&a, WINDOW_BITS)),
+            compress(&host_comb_mul(&b_, WINDOW_BITS))
+        );
+        // And a difference confined to the top window.
+        let c = NB::from(1u32) << 250u32;
+        let d = NB::from(3u32) << 250u32;
+        assert_ne!(
+            compress(&host_comb_mul(&c, WINDOW_BITS)),
+            compress(&host_comb_mul(&d, WINDOW_BITS))
+        );
     }
 }
