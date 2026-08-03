@@ -1,9 +1,12 @@
 //! Host-side Ed25519 arithmetic — plain integers, no circuit.
 //!
-//! Two uses: generating the constant comb tables that `scalar_mul` embeds, and computing
-//! expected values in tests. It is deliberately the most obvious implementation rather
-//! than the fastest, because it is a *reference*: if it and the circuit ever disagree,
-//! this is the one that should be easy to check by eye.
+//! Not test-only, despite what an earlier name suggested: `scalar_mul` calls this at
+//! circuit-build time to generate the constant comb tables, so it is production code. It
+//! is also the reference tests compare against.
+//!
+//! Deliberately the most obvious implementation rather than the fastest, because it is a
+//! *reference*: if it and the circuit ever disagree, this is the one that should be easy
+//! to check by eye.
 //!
 //! Correctness is anchored to `curve25519-dalek` in the test module, so this is not a
 //! second unverified implementation.

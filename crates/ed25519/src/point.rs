@@ -102,7 +102,7 @@ mod tests {
     use super::*;
     use crate::{
         consts::p_bigint,
-        testutil::{Affine, add_affine, basepoint, identity as host_identity, to_niels},
+        host::{Affine, add_affine, basepoint, identity as host_identity, to_niels},
     };
 
     /// Build `pt` as a circuit constant in extended coordinates from an affine point.
@@ -232,7 +232,7 @@ mod witness_tests {
     use crate::{
         consts::{N_LIMBS, p_bigint},
         field::Fp,
-        testutil::{add_affine, basepoint, to_niels},
+        host::{add_affine, basepoint, to_niels},
     };
 
     fn to_limbs(v: &NB) -> [u64; N_LIMBS] {
@@ -345,7 +345,7 @@ mod cost {
     use binius_frontend::CircuitBuilder;
 
     use super::*;
-    use crate::{consts::N_LIMBS, field::Fp, testutil::{basepoint, to_niels}};
+    use crate::{consts::N_LIMBS, field::Fp, host::{basepoint, to_niels}};
 
     /// Build a chain of `n` mixed additions and return `(AND, IMUL)`.
     fn cost_of_chain(n: usize) -> (usize, usize) {

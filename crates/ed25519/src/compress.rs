@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn canonicality_assertion_rejects_the_other_representative() {
         let p = p_bigint();
-        let g = crate::testutil::basepoint();
+        let g = crate::host::basepoint();
 
         let build = |with_assertion: bool| {
             let b = CircuitBuilder::new();
@@ -334,7 +334,7 @@ mod tests {
     #[test]
     fn rejects_non_canonical_affine_x() {
         let p = p_bigint();
-        let g = crate::testutil::basepoint();
+        let g = crate::host::basepoint();
 
         let b = CircuitBuilder::new();
         let f = Fp::new(&b);

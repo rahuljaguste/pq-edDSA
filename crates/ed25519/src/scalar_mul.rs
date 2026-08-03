@@ -28,7 +28,7 @@ use crate::{
     consts::N_LIMBS,
     field::Fp,
     point::{Niels, Point},
-    testutil::{Affine, add_affine, basepoint, identity, to_niels},
+    host::{Affine, add_affine, basepoint, identity, to_niels},
 };
 
 /// Bits consumed per window.
@@ -187,7 +187,7 @@ mod tests {
     use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, scalar::Scalar};
 
     use super::*;
-    use crate::{consts::p_bigint, testutil::{compress, mul_basepoint as host_mul, on_curve}};
+    use crate::{consts::p_bigint, host::{compress, mul_basepoint as host_mul, on_curve}};
 
     fn to_limbs(v: &NB) -> [u64; N_LIMBS] {
         let mut out = [0u64; N_LIMBS];
@@ -472,7 +472,7 @@ mod shape {
     /// accidentally ignoring some of its digits.
     #[test]
     fn distinct_scalars_give_distinct_points() {
-        use crate::testutil::compress;
+        use crate::host::compress;
         let a = (NB::from(1u32) << 200u32) + NB::from(12345u64);
         let b_ = (NB::from(1u32) << 200u32) + NB::from(12346u64);
         assert_ne!(
