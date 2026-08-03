@@ -1,3 +1,4 @@
+pub mod compress;
 pub mod consts;
 pub mod field;
 pub mod point;

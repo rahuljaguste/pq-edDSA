@@ -208,3 +208,33 @@ add roughly 4,000 more AND. That pushes `w = 4` and `w = 5` from 2^16 into 2^17,
 `w = 6` already sits, so the AND-count advantage those windows held disappears while
 `w = 6` keeps its IMUL padding advantage. The choice should therefore hold or improve at
 full circuit size, but Task 6 must re-measure rather than assume it.
+
+## Affine conversion and compression
+
+| step | AND | IMUL |
+|---|---|---|
+| comb scalar multiplication (w=6) | 68,114 | 7,212 |
+| + affine conversion and compression | **+297** | **+48** |
+| **total** | **68,411** | **7,260** |
+
+The spec projected ~400 AND and ~32 IMUL for this step; measured 297 and 48. Two field
+multiplications at 24 IMUL each accounts for the 48.
+
+Avoiding the in-circuit inversion is what makes this cheap. A modular exponentiation would
+have cost hundreds of multiplications; the hint-plus-check costs two. The constraint that
+began as a workaround for the composite modulus — `PseudoMersennePrimeField::inverse`
+being unusable mod `2p` — is simply the better construction.
+
+### The canonicality assertion is load-bearing, not defensive
+
+`x_aff < p` and `y_aff < p` are the only things stopping a prover from supplying `x + p`.
+That value satisfies both residue checks, since it is the same residue — but it has the
+opposite low bit, and the low bit of `x` is exactly what RFC 8032 compression encodes as
+the sign. Without the assertion a prover could choose the compressed public key's sign bit
+freely.
+
+Nothing in the honest test suite would notice if the assertion were deleted, because the
+honest hint never produces a non-canonical value. `canonicality_assertion_rejects_the_other_representative`
+therefore installs a deliberately malicious hint and checks both directions: without the
+assertion the bad value is accepted (confirming the hole is real), with it the constraint
+system rejects.
