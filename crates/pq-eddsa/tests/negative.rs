@@ -188,3 +188,61 @@ fn circuit_shape_is_independent_of_the_seed() {
     };
     assert_eq!(shape(), shape());
 }
+
+/// Substituting another user's **valid** public key must fail.
+///
+/// Every other pk test flips a bit, which likely yields an encoding no point decodes to —
+/// so it could be rejected for being malformed rather than for being the wrong key. This
+/// is the attack that actually matters: proving "I control account B" while holding only
+/// seed A. The claimed pk is perfectly well-formed; it is simply not derived from the
+/// witness.
+#[test]
+fn rejects_another_users_valid_pk() {
+    let seed_a = seed_of(SEED_A);
+    let seed_b = seed_of(SEED_B);
+    let msg = [3u8; 32];
+
+    let mut pi = PqEddsaCircuit::public_inputs(&seed_a, &msg);
+    let pk_b = PqEddsaCircuit::public_inputs(&seed_b, &msg).pk;
+    assert_ne!(pi.pk, pk_b, "test vectors must have distinct public keys");
+    pi.pk = pk_b; // a genuine, well-formed public key — just not seed A's
+
+    assert!(
+        !accepts(&seed_a, &pi),
+        "accepted a claim to another account's public key"
+    );
+}
+
+/// `check_relation` is the CLI's fail-fast guard. If it wrongly returned `Ok`, a user
+/// would get an opaque constraint failure instead of a readable message — and if it
+/// wrongly returned `Err`, honest proving would be blocked. Both directions are tested
+/// because only the CLI calls it, so nothing else would notice a regression.
+#[test]
+fn check_relation_accepts_only_consistent_statements() {
+    use pq_eddsa::circuit::PqEddsaCircuit as C;
+
+    let seed = seed_of(SEED_A);
+    let msg = [9u8; 32];
+    let pi = C::public_inputs(&seed, &msg);
+
+    assert!(C::check_relation(&seed, &msg, &pi).is_ok(), "rejected an honest statement");
+
+    let mut bad_pk = pi.clone();
+    bad_pk.pk[0] ^= 1;
+    assert!(C::check_relation(&seed, &msg, &bad_pk).is_err(), "missed a wrong pk");
+
+    let mut bad_hx = pi.clone();
+    bad_hx.hx[0] ^= 1;
+    assert!(C::check_relation(&seed, &msg, &bad_hx).is_err(), "missed a wrong hx");
+
+    let mut bad_msg = pi.clone();
+    bad_msg.msg[0] ^= 1;
+    assert!(C::check_relation(&seed, &msg, &bad_msg).is_err(), "missed a wrong msg");
+
+    let mut wrong_seed = seed;
+    wrong_seed[0] ^= 1;
+    assert!(
+        C::check_relation(&wrong_seed, &msg, &pi).is_err(),
+        "missed a seed that does not derive pk"
+    );
+}
