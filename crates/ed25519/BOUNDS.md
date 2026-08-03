@@ -342,3 +342,59 @@ of the committed scalar, and constraining a hinted recomposition
 (`Σ dᵢ·(2^w)^i == scalar`) would cost a full-width bignum computation — more than the
 multiplexer saves. In-circuit it is word arithmetic on values below `2^w`: an add, a
 comparison, a conditional subtract and a select per window, a few constraints each.
+
+## Can the IMUL cost be reduced?
+
+Largely no, and the reason is the padding tier rather than the arithmetic.
+
+**Where it goes.** Measured by `field::imul_breakdown::report_imul_breakdown`:
+
+```
+4x4 textbook product only : 16 IMUL
+full Fp::mul (with reduce): 24 IMUL
+=> modular reduction costs:  8 IMUL
+```
+
+310 field multiplications (44 windows × 7, plus 2 for compression) × 24 = 7,440,
+matching the measured 7,428.
+
+**Every available lever lands in the same tier.** IMUL pads to a power of two, and at 7,428
+we sit at 91% of 2^13 = 8,192. Nothing short of dropping below 2^12 = 4,096 changes the
+padded size:
+
+| lever | IMUL | tier |
+|---|---|---|
+| current | 7,440 | 2^13 |
+| Karatsuba product (12 + 8) | 6,200 | 2^13 |
+| `w = 7`, 38 windows | 6,432 | 2^13 |
+| *free* reduction (16 + 0), hypothetical | 4,960 | 2^13 |
+| `w = 11`, 24 windows | 4,080 | 2^12 |
+
+Even an impossible zero-cost modular reduction stays in 2^13. The only configuration that
+drops a tier is `w = 11`, where the table is `2^10 + 1 = 1,025` entries and the multiplexer
+cost is prohibitive — it would trade a 2^13→2^12 IMUL saving for an AND increase far larger
+than the 2^16→2^17 crossing it would also cause.
+
+**Specific options assessed and rejected:**
+
+- **Karatsuba at 4 limbs.** `optimal_mul` picks textbook below `KARATSUBA_LIMBS_THRESHOLD =
+  8` limbs. Calling `karatsuba_mul` directly would give 12 IMUL instead of 16 — but at the
+  cost of extra additions and carries in AND, for no tier change. Upstream's threshold looks
+  right even under our AND-cheap cost model.
+- **Lazy reduction** (defer reduction across the formula). Does not apply here: in the HWCD
+  mixed addition the three initial products feed additions that immediately feed four more
+  products, so unreduced 8-limb intermediates would make those products 8×8 = 64 IMUL —
+  far worse than the 8 IMUL saved per reduction.
+- **Fewer multiplications per addition.** 7M is optimal for extended-coordinate mixed
+  addition with `a = -1`; there is no 6M variant.
+- **Skipping the final `T`.** `T` is only consumed by the next addition, so the last window
+  could omit it — one multiplication out of 310, ~0.3%.
+
+**Conclusion.** IMUL is at its practical floor for this construction. The window sweep
+already picks the best point (`w = 6`), and it does so *because* of the tier: `w = 7` has
+14% fewer IMUL, lands in the same tier, and proves slower on the AND increase alone.
+
+Reducing proving time further would need a change of approach rather than a change of
+parameter — a smaller field representation, a different reduction strategy inside
+binius64's `bignum`, or a proof system whose multiply constraint is cheaper relative to its
+AND constraint.

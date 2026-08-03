@@ -375,3 +375,43 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod imul_breakdown {
+    use binius_circuits::bignum::{BigUint, textbook_mul};
+    use binius_frontend::CircuitBuilder;
+
+    use super::*;
+    use crate::consts::N_LIMBS;
+
+    fn imul_of(f: impl Fn(&CircuitBuilder)) -> usize {
+        let b = CircuitBuilder::new();
+        f(&b);
+        b.build().constraint_system().imul_constraints.len()
+    }
+
+    /// Where do the 24 IMUL per field multiplication go?
+    #[test]
+    fn report_imul_breakdown() {
+        let base = imul_of(|b| {
+            let _ = Fp::new(b);
+            let _ = BigUint::new_witness(b, N_LIMBS);
+            let _ = BigUint::new_witness(b, N_LIMBS);
+        });
+        let raw_product = imul_of(|b| {
+            let x = BigUint::new_witness(b, N_LIMBS);
+            let y = BigUint::new_witness(b, N_LIMBS);
+            let _ = textbook_mul(b, &x, &y);
+        });
+        let full_mul = imul_of(|b| {
+            let f = Fp::new(b);
+            let x = BigUint::new_witness(b, N_LIMBS);
+            let y = BigUint::new_witness(b, N_LIMBS);
+            let _ = f.mul(b, &x, &y);
+        });
+        println!("\n  4x4 textbook product only : {raw_product} IMUL");
+        println!("  full Fp::mul (with reduce): {} IMUL", full_mul - base);
+        println!("  => modular reduction costs: {} IMUL", (full_mul - base) - raw_product);
+        println!();
+    }
+}
