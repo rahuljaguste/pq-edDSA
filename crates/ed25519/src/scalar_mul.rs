@@ -199,9 +199,7 @@ mod tests {
 
     fn clamped(seed_byte: u8) -> ([u8; 32], NB) {
         let mut bytes = [seed_byte; 32];
-        bytes[0] &= 248;
-        bytes[31] &= 127;
-        bytes[31] |= 64;
+        crate::host::clamp_bytes(&mut bytes);
         (bytes, NB::from_bytes_le(&bytes))
     }
 
@@ -383,9 +381,7 @@ mod prove_sweep {
 
         let mut wf = cs.new_witness_filler();
         let mut bytes = [0x37u8; 32];
-        bytes[0] &= 248;
-        bytes[31] &= 127;
-        bytes[31] |= 64;
+        crate::host::clamp_bytes(&mut bytes);
         let k = NB::from_bytes_le(&bytes);
         let mut limbs = [0u64; N_LIMBS];
         for (i, d) in k.iter_u64_digits().enumerate() {

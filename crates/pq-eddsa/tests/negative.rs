@@ -128,7 +128,7 @@ fn proof_for_one_statement_does_not_verify_against_another() {
     let circuit = PqEddsaCircuit::build(&b);
     let cs = b.build();
     let mut w = cs.new_witness_filler();
-    circuit.populate(&mut w, &seed, &msg).unwrap();
+    circuit.populate(&mut w, &seed, &msg);
     cs.populate_wire_witness(&mut w).unwrap();
     let witness = w.into_value_vec();
 

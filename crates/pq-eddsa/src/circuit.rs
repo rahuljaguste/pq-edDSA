@@ -76,15 +76,14 @@ impl PqEddsaCircuit {
     }
 
     /// Populate every input from a seed and message.
-    pub fn populate(
-        &self,
-        w: &mut WitnessFiller,
-        seed: &[u8; 32],
-        msg: &[u8; 32],
-    ) -> Result<()> {
+    ///
+    /// Infallible, and typed that way. Both halves are total functions over fixed-size
+    /// arrays, so there is no failure mode to report — returning `Result` would invite
+    /// callers to handle a path that cannot fire, and would mask the signature change if
+    /// a future revision genuinely could fail.
+    pub fn populate(&self, w: &mut WitnessFiller, seed: &[u8; 32], msg: &[u8; 32]) {
         self.populate_private(w, seed);
         self.populate_public(w, &Self::public_inputs(seed, msg));
-        Ok(())
     }
 
     /// The private witness — the seed, and nothing else.
@@ -175,14 +174,7 @@ pub struct PublicInputs {
 /// `pk` from a seed, per RFC 8032 — computed with the host-side reference that
 /// `ed25519_binius` already anchors to `curve25519-dalek`.
 pub fn derive_pk(seed: &[u8; 32]) -> [u8; 32] {
-    use sha2::{Digest, Sha512};
-    let h = Sha512::digest(seed);
-    let mut a = [0u8; 32];
-    a.copy_from_slice(&h[..32]);
-    a[0] &= 248;
-    a[31] &= 127;
-    a[31] |= 64;
-    let k = num_bigint::BigUint::from_bytes_le(&a);
+    let k = ed25519_binius::host::clamped_scalar_from_seed(seed);
     ed25519_binius::host::compress(&ed25519_binius::host::mul_basepoint(&k))
 }
 

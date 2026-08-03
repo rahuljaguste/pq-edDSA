@@ -24,6 +24,35 @@ const GY_DEC: &str = "4631683569492647816942839400347516314130799386625622561578
 /// An affine point.
 pub type Affine = (NB, NB);
 
+/// RFC 8032 section 5.1.5 clamping, applied in place to the low 32 bytes of a SHA-512
+/// digest.
+///
+/// **The single host-side source of truth.** Six copies of this existed previously — one
+/// production (`pq_eddsa::circuit::derive_pk`) and five test helpers. Constants that
+/// govern which scalars are reachable are exactly where copy-paste rots: a curve variant
+/// or spec amendment has to find every copy, and one missed in a test helper fails
+/// confusingly rather than clearly.
+///
+/// The in-circuit equivalent is [`crate::scalar::clamp`], which necessarily differs — it
+/// operates on little-endian 64-bit limbs rather than bytes. That the two agree is
+/// asserted directly by `clamp_agrees_with_host` in `scalar.rs`, not left to the
+/// end-to-end vectors.
+pub fn clamp_bytes(a: &mut [u8; 32]) {
+    a[0] &= 248;
+    a[31] &= 127;
+    a[31] |= 64;
+}
+
+/// SHA-512(seed), low 32 bytes, clamped, read little-endian — the RFC 8032 signing scalar.
+pub fn clamped_scalar_from_seed(seed: &[u8; 32]) -> NB {
+    use sha2::{Digest, Sha512};
+    let h = Sha512::digest(seed);
+    let mut a = [0u8; 32];
+    a.copy_from_slice(&h[..32]);
+    clamp_bytes(&mut a);
+    NB::from_bytes_le(&a)
+}
+
 /// The Ed25519 base point.
 pub fn basepoint() -> Affine {
     (GX_DEC.parse().unwrap(), GY_DEC.parse().unwrap())

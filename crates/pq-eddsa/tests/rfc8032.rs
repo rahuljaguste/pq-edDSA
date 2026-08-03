@@ -69,7 +69,7 @@ fn circuit_proves_rfc8032_vectors() {
         let circuit = PqEddsaCircuit::build(&b);
         let cs = b.build();
         let mut w = cs.new_witness_filler();
-        circuit.populate(&mut w, &seed, &msg).unwrap();
+        circuit.populate(&mut w, &seed, &msg);
         cs.populate_wire_witness(&mut w)
             .unwrap_or_else(|e| panic!("unsatisfiable for seed {seed_hex}: {e:?}"));
 
@@ -99,7 +99,7 @@ fn circuit_proves_with_a_nonzero_message() {
     let circuit = PqEddsaCircuit::build(&b);
     let cs = b.build();
     let mut w = cs.new_witness_filler();
-    circuit.populate(&mut w, &seed, &msg).unwrap();
+    circuit.populate(&mut w, &seed, &msg);
     cs.populate_wire_witness(&mut w).unwrap();
     verify_constraints(cs.constraint_system(), &w.into_value_vec()).unwrap();
 }
@@ -133,7 +133,7 @@ fn verifier_reconstructs_the_same_public_words() {
 
     // Prover: full population, which fills constants as a side effect.
     let mut w = cs.new_witness_filler();
-    circuit.populate(&mut w, &seed, &msg).unwrap();
+    circuit.populate(&mut w, &seed, &msg);
     cs.populate_wire_witness(&mut w).unwrap();
     let prover_public = w.into_value_vec().public().to_vec();
 

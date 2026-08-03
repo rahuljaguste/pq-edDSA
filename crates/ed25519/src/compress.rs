@@ -162,9 +162,7 @@ mod tests {
 
     fn clamped(seed_byte: u8) -> ([u8; 32], NB) {
         let mut bytes = [seed_byte; 32];
-        bytes[0] &= 248;
-        bytes[31] &= 127;
-        bytes[31] |= 64;
+        crate::host::clamp_bytes(&mut bytes);
         (bytes, NB::from_bytes_le(&bytes))
     }
 

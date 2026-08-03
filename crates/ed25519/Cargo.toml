@@ -10,6 +10,7 @@ binius-core.workspace = true
 binius-frontend.workspace = true
 binius-circuits.workspace = true
 num-bigint.workspace = true
+sha2 = "0.10"
 
 [dev-dependencies]
 binius-prover.workspace = true

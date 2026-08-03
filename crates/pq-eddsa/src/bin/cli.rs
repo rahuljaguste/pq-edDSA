@@ -92,7 +92,7 @@ fn main() -> Result<()> {
             let circuit = PqEddsaCircuit::build(&b);
             let cs = b.build();
             let mut w = cs.new_witness_filler();
-            circuit.populate(&mut w, &seed, &msg)?;
+            circuit.populate(&mut w, &seed, &msg);
             cs.populate_wire_witness(&mut w)
                 .map_err(|e| anyhow::anyhow!("witness population failed: {e:?}"))?;
             let witness = w.into_value_vec();

@@ -74,7 +74,6 @@ mod tests {
     use binius_core::{verify::verify_constraints, word::Word};
     use binius_frontend::CircuitBuilder;
     use proptest::prelude::*;
-    use sha2::{Digest, Sha512};
 
     use super::*;
     use crate::consts::N_LIMBS;
@@ -90,13 +89,7 @@ mod tests {
 
     /// The reference derivation: SHA-512(seed), low 32 bytes, clamp, read little-endian.
     fn reference_clamped_scalar(seed: &[u8; 32]) -> num_bigint::BigUint {
-        let h = Sha512::digest(seed);
-        let mut a = [0u8; 32];
-        a.copy_from_slice(&h[..32]);
-        a[0] &= 248;
-        a[31] &= 127;
-        a[31] |= 64;
-        num_bigint::BigUint::from_bytes_le(&a)
+        crate::host::clamped_scalar_from_seed(seed)
     }
 
     /// Derive in-circuit and compare against the reference. Returns the limbs so callers
@@ -250,5 +243,70 @@ mod tests {
         // And explicitly: limb 0 must be the byte-reverse of word 0, not word 0 itself.
         assert_eq!(got[0], words[0].swap_bytes());
         assert_ne!(got[0], words[0], "a word reordering would pass without this");
+    }
+}
+
+#[cfg(test)]
+mod clamp_agreement {
+    use binius_circuits::bignum::BigUint;
+    use binius_core::{verify::verify_constraints, word::Word};
+    use binius_frontend::CircuitBuilder;
+    use proptest::prelude::*;
+
+    use super::*;
+    use crate::{consts::N_LIMBS, host::clamp_bytes};
+
+    /// The in-circuit clamp and the host clamp must agree, across arbitrary inputs.
+    ///
+    /// They necessarily differ in form — one masks little-endian 64-bit limbs, the other
+    /// indexes bytes — so matching constants is *not* the same as matching semantics. A
+    /// structural divergence could hide behind identical numbers. This asserts the
+    /// behaviour directly rather than relying on the end-to-end vectors to notice.
+    fn assert_clamps_agree(input: [u8; 32]) {
+        let mut expected_bytes = input;
+        clamp_bytes(&mut expected_bytes);
+        let expected = num_bigint::BigUint::from_bytes_le(&expected_bytes);
+
+        let b = CircuitBuilder::new();
+        let s = BigUint::new_witness(&b, N_LIMBS);
+        let out = clamp(&b, &s);
+
+        let cs = b.build();
+        let mut w = cs.new_witness_filler();
+        let mut limbs = [0u64; N_LIMBS];
+        for (i, chunk) in input.chunks(8).enumerate() {
+            limbs[i] = u64::from_le_bytes(chunk.try_into().unwrap());
+        }
+        s.populate_limbs(&mut w, &limbs);
+        cs.populate_wire_witness(&mut w).unwrap();
+        let got: Vec<u64> = out.limbs.iter().map(|l| w[*l].as_u64()).collect();
+        verify_constraints(cs.constraint_system(), &w.into_value_vec()).unwrap();
+
+        let mut want = [0u64; N_LIMBS];
+        for (i, d) in expected.iter_u64_digits().enumerate() {
+            want[i] = d;
+        }
+        assert_eq!(want.to_vec(), got, "clamps disagree on {input:?}");
+        let _ = Word::ZERO;
+    }
+
+    #[test]
+    fn clamp_agrees_with_host_on_edge_inputs() {
+        assert_clamps_agree([0u8; 32]);
+        assert_clamps_agree([0xFFu8; 32]);
+        let mut only_low = [0u8; 32];
+        only_low[0] = 0xFF;
+        assert_clamps_agree(only_low);
+        let mut only_high = [0u8; 32];
+        only_high[31] = 0xFF;
+        assert_clamps_agree(only_high);
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(24))]
+        #[test]
+        fn clamp_agrees_with_host(input in proptest::array::uniform32(any::<u8>())) {
+            assert_clamps_agree(input);
+        }
     }
 }

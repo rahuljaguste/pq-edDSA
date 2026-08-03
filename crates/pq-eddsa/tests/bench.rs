@@ -66,7 +66,7 @@ where
     };
 
     let mut w = cs.new_witness_filler();
-    circuit.populate(&mut w, &seed, &msg).unwrap();
+    circuit.populate(&mut w, &seed, &msg);
     cs.populate_wire_witness(&mut w).unwrap();
     let witness = w.into_value_vec();
     verify_constraints(cs.constraint_system(), &witness).unwrap();
