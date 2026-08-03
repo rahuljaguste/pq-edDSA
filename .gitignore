@@ -9,3 +9,6 @@ target/
 # can tie to the source is also the wrong thing to ask people to trust on a page whose
 # whole claim is that their seed stays local.
 web/pkg/
+
+# macOS scatters these through the tree and they are easy to commit by accident.
+.DS_Store
