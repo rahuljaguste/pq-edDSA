@@ -9,6 +9,11 @@ FC 2026) on [Binius64](https://github.com/binius-zk/binius64), for comparison wi
 paper's reference implementation [SoundnessLabs/PQChain](https://github.com/SoundnessLabs/PQChain),
 which uses the Ligetron zkVM.
 
+This is a second implementation of the same relation on a different proving system, not a
+replacement for the first. The comparison below is a result of that exercise rather than
+its purpose — the interesting question is what the choice of proving system costs, and
+PQChain is the only other implementation to measure against.
+
 > **Research artifact.** Not audited, not production-ready. The zero-knowledge claim in
 > particular is unaudited — see [Soundness](#soundness). Do not use this to secure real
 > assets.
@@ -32,7 +37,7 @@ quoting these.
 | | PQ-EdDSA (this) | PQChain (Ligetron) | ratio |
 |---|---|---|---|
 | constraints | **64,742** (57,314 AND + 7,428 IMUL) | 4,924,225 | **76× fewer** |
-| prove | **113.9 ms** | 6,200 ms | **54× faster** |
+| prove | **113.9 ms** | 5,400 ms | **47× faster** |
 | verify | **47.5 ms** | 2,300 ms | **48× faster** |
 | proof size | **515 KiB** | 5.4 MB | **10.5× smaller** |
 | host | Apple M1 Pro, 8 cores | Apple M4 Pro, 12 cores | *ours is slower silicon* |
@@ -150,7 +155,15 @@ Please read this before quoting the numbers above.
 - **System load at measurement: ~6 on 8 cores.** Not a quiescent machine. A quieter host
   would likely be faster, so these figures are conservative rather than flattering.
 - **PQChain's figures** are from its own README (average of 100 runs, M4 Pro 12-core). We
-  have not re-run them.
+  have not re-run them, so this is not a controlled comparison — different silicon,
+  different day, their measurement not ours.
+- **Where PQChain's README and the paper disagree, we use the figure more favourable to
+  PQChain.** The README reports 5.4 s proving; the paper reports 6.2 s. Using 6.2 s would
+  make our ratio 54× rather than 47×. The README is their current claim and the more
+  conservative choice for us, so it is the one quoted.
+- **PQChain describes itself as a work in progress** whose "APIs, circuit design, and
+  implementation details may change without notice". Benchmarking against a self-declared
+  WIP warrants some caution about how much weight these ratios carry.
 
 Reproduce:
 
@@ -210,7 +223,9 @@ with `+simd128` — a module orphaned by a refactor. Submitted as
 
 - [Baldimtsi, Chalkias, Roy, Sedaghat](https://eprint.iacr.org/2025/1368.pdf) for the paper.
 - [SoundnessLabs/PQChain](https://github.com/SoundnessLabs/PQChain) (Apache-2.0) for the
-  reference implementation this is measured against.
+  reference implementation this is measured against — and specifically for its
+  `fix/ed25519-scalar-mul-secret-leak` commit, which named a bug class (constraint-graph
+  shape depending on the secret scalar) that this repository now tests for explicitly.
 - [Irreducible](https://www.irreducible.com) and the Binius developers for
   [Binius64](https://github.com/binius-zk/binius64).
 - [curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek), used as the
