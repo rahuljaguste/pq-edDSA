@@ -90,7 +90,7 @@ configuration in CI compiles.
 
 Found while porting an Ed25519 circuit to Binius64. Full write-up of the diagnosis,
 including a wrong first diagnosis that is corrected inline, is at
-`docs/spikes/2026-08-03-task0-derisk.md` in this repository.
+`docs/notes/derisking-wasm32-and-blinding.md` in this repository.
 
 The first diagnosis claimed the module was selected unconditionally on `target_arch` and
 that no build flag avoided it. That was wrong — it reads `arch/mod.rs`, which dispatches on

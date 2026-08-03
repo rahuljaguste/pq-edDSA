@@ -155,11 +155,11 @@ further 8 for `quotient × subtrahend` and the associated range machinery.
 Consequence for the end-to-end projection: AND lands *below* the spec's estimate and IMUL
 *above* it. Since `IntMul` was roughly half of `ec_msm`'s proving time, the two partly
 offset and the ~60–70 ms estimate stands, but it should be re-derived from a full-circuit
-measurement in Task 4 rather than carried forward on this basis.
+measurement in the comb-window work rather than carried forward on this basis.
 
 ## Comb window size
 
-Settled by measurement in Task 4. Reproduce with:
+Settled by measurement in the comb-window work. Reproduce with:
 
 ```bash
 cargo test -p ed25519-binius --release report_window_sweep -- --nocapture
@@ -207,7 +207,7 @@ The scalar multiplication is not the whole circuit — two SHA-512 blocks and co
 add roughly 4,000 more AND. That pushes `w = 4` and `w = 5` from 2^16 into 2^17, where
 `w = 6` already sits, so the AND-count advantage those windows held disappears while
 `w = 6` keeps its IMUL padding advantage. The choice should therefore hold or improve at
-full circuit size, but Task 6 must re-measure rather than assume it.
+full circuit size, but the full-circuit measurement re-derives it rather than assuming it.
 
 ## Affine conversion and compression
 

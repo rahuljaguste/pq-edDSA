@@ -30,8 +30,8 @@ use num_bigint::BigUint as NB;
 use crate::{
     consts::N_LIMBS,
     field::Fp,
-    point::{Niels, Point},
     host::{Affine, add_affine, basepoint, identity, to_niels},
+    point::{Niels, Point},
 };
 
 /// Bits consumed per window.
@@ -112,7 +112,6 @@ pub fn host_comb_tables(w: usize) -> Vec<Vec<Affine>> {
     tables
 }
 
-
 /// All windows' tables as circuit constants in niels form.
 fn comb_tables(b: &CircuitBuilder, f: &Fp, w: usize) -> Vec<Vec<Niels>> {
     host_comb_tables(w)
@@ -175,12 +174,7 @@ fn digit(b: &CircuitBuilder, scalar: &BigUint, i: usize, w: usize) -> Wire {
 /// verified function of the committed scalar, and constraining a hinted recomposition
 /// would cost more than the multiplexer saves. Done in-circuit it is word arithmetic on
 /// values below `2^w`, a few constraints per window.
-pub fn mul_basepoint_with_window(
-    b: &CircuitBuilder,
-    f: &Fp,
-    scalar: &BigUint,
-    w: usize,
-) -> Point {
+pub fn mul_basepoint_with_window(b: &CircuitBuilder, f: &Fp, scalar: &BigUint, w: usize) -> Point {
     assert_eq!(scalar.limbs.len(), N_LIMBS);
     assert!((2..=8).contains(&w), "window must be 2..=8 bits");
     let tables = comb_tables(b, f, w);
@@ -216,9 +210,15 @@ pub fn mul_basepoint_with_window(
         let refs: Vec<&[Wire]> = groups.iter().map(|g| g.as_slice()).collect();
         let picked = multi_wire_multiplex(b, &refs, magnitude);
 
-        let ypx = BigUint { limbs: picked[0..N_LIMBS].to_vec() };
-        let ymx = BigUint { limbs: picked[N_LIMBS..2 * N_LIMBS].to_vec() };
-        let t2d = BigUint { limbs: picked[2 * N_LIMBS..3 * N_LIMBS].to_vec() };
+        let ypx = BigUint {
+            limbs: picked[0..N_LIMBS].to_vec(),
+        };
+        let ymx = BigUint {
+            limbs: picked[N_LIMBS..2 * N_LIMBS].to_vec(),
+        };
+        let t2d = BigUint {
+            limbs: picked[2 * N_LIMBS..3 * N_LIMBS].to_vec(),
+        };
 
         // Negating (x, y) -> (-x, y) swaps y+x with y-x and negates 2dxy.
         let neg_t2d = f.sub(b, &p_const, &t2d);
@@ -266,7 +266,10 @@ mod tests {
     use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, scalar::Scalar};
 
     use super::*;
-    use crate::{consts::p_bigint, host::{compress, mul_basepoint as host_mul, on_curve}};
+    use crate::{
+        consts::p_bigint,
+        host::{compress, mul_basepoint as host_mul, on_curve},
+    };
 
     fn to_limbs(v: &NB) -> [u64; N_LIMBS] {
         let mut out = [0u64; N_LIMBS];
@@ -289,11 +292,19 @@ mod tests {
             let tables = host_comb_tables(w);
             let table = &tables[0];
             for (d, entry) in table.iter().enumerate() {
-                let expected = if d == 0 { identity() } else { host_mul(&NB::from(d as u64)) };
+                let expected = if d == 0 {
+                    identity()
+                } else {
+                    host_mul(&NB::from(d as u64))
+                };
                 assert_eq!(*entry, expected, "w={w} window=0 digit={d}");
             }
             // Window 1's base must be (2^w)·G.
-            assert_eq!(tables[1][1], host_mul(&NB::from(1u64 << w)), "w={w} window=1 base");
+            assert_eq!(
+                tables[1][1],
+                host_mul(&NB::from(1u64 << w)),
+                "w={w} window=1 base"
+            );
         }
     }
 
@@ -344,7 +355,11 @@ mod tests {
             let zinv = zz.modpow(&(&p - NB::from(2u32)), &p);
             let affine = ((xx * &zinv) % &p, (yy * &zinv) % &p);
             assert!(on_curve(&affine), "w={w}: result off curve");
-            assert_eq!(compress(&affine), expected_bytes, "w={w}: mismatch vs dalek");
+            assert_eq!(
+                compress(&affine),
+                expected_bytes,
+                "w={w}: mismatch vs dalek"
+            );
         }
     }
 
@@ -417,10 +432,7 @@ mod sweep {
             let (and, imul) = (sys.n_and_constraints(), sys.imul_constraints.len());
             // One extra window for the carry; tables hold |d| only.
             let entries = (n_windows(w) + 1) * ((1 << (w - 1)) + 1);
-            println!(
-                "  {w}  {:>7}  {and:<8} {imul:<8} {entries}",
-                n_windows(w)
-            );
+            println!("  {w}  {:>7}  {and:<8} {imul:<8} {entries}", n_windows(w));
             // Rank by AND, the dominant term.
             if and < best.0 {
                 best = (and, w);
@@ -659,9 +671,7 @@ mod soundness {
                 let acc: num_bigint::BigInt = digits
                     .iter()
                     .enumerate()
-                    .map(|(i, d)| {
-                        num_bigint::BigInt::from(*d) << (i * w) as u32
-                    })
+                    .map(|(i, d)| num_bigint::BigInt::from(*d) << (i * w) as u32)
                     .sum();
                 assert_eq!(
                     acc,

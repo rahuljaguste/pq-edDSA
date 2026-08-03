@@ -267,9 +267,9 @@ mod tests {
         let max = &two_p - NB::from(1u32);
         let cases: &[(NB, NB)] = &[
             (NB::from(0u32), NB::from(0u32)),
-            (max.clone(), max.clone()), // sum just under 2*modulus
+            (max.clone(), max.clone()),    // sum just under 2*modulus
             (max.clone(), NB::from(1u32)), // wraps to exactly 0
-            (p.clone(), p.clone()),     // 2p, wraps to 0
+            (p.clone(), p.clone()),        // 2p, wraps to 0
             (&p - NB::from(1u32), NB::from(1u32)),
         ];
 
@@ -411,7 +411,10 @@ mod imul_breakdown {
         });
         println!("\n  4x4 textbook product only : {raw_product} IMUL");
         println!("  full Fp::mul (with reduce): {} IMUL", full_mul - base);
-        println!("  => modular reduction costs: {} IMUL", (full_mul - base) - raw_product);
+        println!(
+            "  => modular reduction costs: {} IMUL",
+            (full_mul - base) - raw_product
+        );
         println!();
     }
 }

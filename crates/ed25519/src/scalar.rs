@@ -48,7 +48,11 @@ pub fn le_limbs_from_sha512(b: &CircuitBuilder, digest: &[Wire; 8]) -> BigUint {
 ///
 /// All three operations are masks against constants — a handful of AND constraints.
 pub fn clamp(b: &CircuitBuilder, s: &BigUint) -> BigUint {
-    assert_eq!(s.limbs.len(), N_LIMBS, "clamp expects a {N_LIMBS}-limb scalar");
+    assert_eq!(
+        s.limbs.len(),
+        N_LIMBS,
+        "clamp expects a {N_LIMBS}-limb scalar"
+    );
 
     let clear_low = b.add_constant_64(!0b111u64);
     let clear_top = b.add_constant_64(!(1u64 << 63));
@@ -77,7 +81,6 @@ mod tests {
 
     use super::*;
     use crate::consts::N_LIMBS;
-
 
     fn nb_to_limbs(v: &num_bigint::BigUint) -> [u64; N_LIMBS] {
         let mut out = [0u64; N_LIMBS];
@@ -186,10 +189,16 @@ mod tests {
         // `(u64::MAX & !(1 << 63)) | (1 << 62)` reads as if the OR does work, but bit 62
         // is already set in that value, so it would silently pass even if `clamp` never
         // set bit 254. The dedicated assertion above is what actually covers that.
-        assert_eq!(got[0], 0xFFFF_FFFF_FFFF_FFF8, "low 3 bits cleared, rest intact");
+        assert_eq!(
+            got[0], 0xFFFF_FFFF_FFFF_FFF8,
+            "low 3 bits cleared, rest intact"
+        );
         assert_eq!(got[1], u64::MAX);
         assert_eq!(got[2], u64::MAX);
-        assert_eq!(got[3], 0x7FFF_FFFF_FFFF_FFFF, "bit 255 cleared, bit 254 already set");
+        assert_eq!(
+            got[3], 0x7FFF_FFFF_FFFF_FFFF,
+            "bit 255 cleared, bit 254 already set"
+        );
     }
 
     /// Clamping an all-zero scalar must still set bit 254 — the range guarantee
@@ -227,7 +236,10 @@ mod tests {
             0x0809_0A0B_0C0D_0E0F,
             0x1011_1213_1415_1617,
             0x1819_1A1B_1C1D_1E1F,
-            0, 0, 0, 0,
+            0,
+            0,
+            0,
+            0,
         ];
         for (i, wire) in digest.iter().enumerate() {
             w[*wire] = Word::from_u64(words[i]);
@@ -242,7 +254,10 @@ mod tests {
         assert_eq!(nb_to_limbs(&expected).to_vec(), got);
         // And explicitly: limb 0 must be the byte-reverse of word 0, not word 0 itself.
         assert_eq!(got[0], words[0].swap_bytes());
-        assert_ne!(got[0], words[0], "a word reordering would pass without this");
+        assert_ne!(
+            got[0], words[0],
+            "a word reordering would pass without this"
+        );
     }
 }
 

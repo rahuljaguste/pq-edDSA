@@ -16,10 +16,12 @@ use num_bigint::BigUint as NB;
 use crate::consts::{d_bigint, p_bigint};
 
 /// Ed25519 base point x-coordinate (RFC 8032 section 5.1).
-const GX_DEC: &str = "15112221349535400772501151409588531511454012693041857206046113283949847762202";
+const GX_DEC: &str =
+    "15112221349535400772501151409588531511454012693041857206046113283949847762202";
 
 /// Ed25519 base point y-coordinate, i.e. `4/5 mod p`.
-const GY_DEC: &str = "46316835694926478169428394003475163141307993866256225615783033603165251855960";
+const GY_DEC: &str =
+    "46316835694926478169428394003475163141307993866256225615783033603165251855960";
 
 /// An affine point.
 pub type Affine = (NB, NB);
@@ -157,7 +159,10 @@ mod tests {
     /// both coordinates and the sign convention at once.
     #[test]
     fn basepoint_matches_dalek() {
-        assert_eq!(compress(&basepoint()), ED25519_BASEPOINT_POINT.compress().to_bytes());
+        assert_eq!(
+            compress(&basepoint()),
+            ED25519_BASEPOINT_POINT.compress().to_bytes()
+        );
     }
 
     /// Anchor the whole host-side implementation to dalek across a range of scalars.
@@ -186,7 +191,9 @@ mod tests {
         let two_g = add_affine(&g, &g);
         assert_eq!(
             compress(&two_g),
-            (ED25519_BASEPOINT_POINT * Scalar::from(2u64)).compress().to_bytes()
+            (ED25519_BASEPOINT_POINT * Scalar::from(2u64))
+                .compress()
+                .to_bytes()
         );
     }
 }

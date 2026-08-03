@@ -1,3 +1,6 @@
 [toolchain]
 channel = "1.97.1"
 targets = ["wasm32-unknown-unknown"]
+# CI gates on both; keep them in the pinned toolchain so a contributor
+# gets the same rustfmt and clippy the workflow runs.
+components = ["clippy", "rustfmt"]

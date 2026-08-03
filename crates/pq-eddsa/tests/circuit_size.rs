@@ -3,7 +3,7 @@
 //! Not a performance guard — a **correctness guard for a measured constant**.
 //!
 //! `config::RECOMMENDED_N_DUMMY_CONSTRAINTS` was chosen by measuring where raising the ZK
-//! blinding stops being free (`docs/spikes/2026-08-03-task8-blinding.md`). That cliff sits
+//! blinding stops being free (`docs/notes/zk-blinding-parameter.md`). That cliff sits
 //! at 2,132 for *this* circuit, because blinding pads the outer Spartan system whose size
 //! this circuit determines. If the circuit changes materially the cliff moves, and 2,048
 //! could silently stop being free — or a much higher value could become available.
@@ -33,8 +33,7 @@ fn circuit_size_matches_the_blinding_measurement() {
     let _ = PqEddsaCircuit::build(&b);
     let cs = b.build();
     let s = cs.constraint_system();
-    let (and, imul, private) =
-        (s.n_and_constraints(), s.imul_constraints.len(), s.n_private);
+    let (and, imul, private) = (s.n_and_constraints(), s.imul_constraints.len(), s.n_private);
 
     let advice = format!(
         "\n\nCircuit size changed: AND {and} (was {EXPECTED_AND}), \
@@ -42,8 +41,8 @@ fn circuit_size_matches_the_blinding_measurement() {
          The free ceiling for n_dummy_constraints was measured at 2,132 for the old size, \
          and RECOMMENDED_N_DUMMY_CONSTRAINTS = {RECOMMENDED_N_DUMMY_CONSTRAINTS} was chosen \
          to sit inside it.\n\
-         Re-run the Task 8 spike before trusting that value, then update these constants.\n\
-         See docs/spikes/2026-08-03-task8-blinding.md\n"
+         Re-run the blinding measurement before trusting that value, then update these constants.\n\
+         See docs/notes/zk-blinding-parameter.md\n"
     );
 
     assert!(within(and, EXPECTED_AND), "{advice}");
@@ -57,7 +56,7 @@ fn circuit_size_matches_the_blinding_measurement() {
 /// constant without re-measuring, this fails.
 #[test]
 fn recommended_blinding_is_inside_the_measured_cliff() {
-    /// Measured in the Task 8 spike: 2,133 is free, 2,134 is not.
+    /// Measured in the blinding work: 2,133 is free, 2,134 is not.
     ///
     /// Notably insensitive to circuit size — an 18% reduction in AND constraints and 15%
     /// in private wires moved this by exactly one. See the spike write-up.

@@ -108,18 +108,21 @@ pub fn to_affine_with_hint<H: Hint>(
     pt: &Point,
     hint: H,
 ) -> (BigUint, BigUint) {
-    let inputs: Vec<Wire> = pt
-        .x
-        .limbs
-        .iter()
-        .chain(&pt.y.limbs)
-        .chain(&pt.z.limbs)
-        .copied()
-        .collect();
+    let inputs: Vec<Wire> =
+        pt.x.limbs
+            .iter()
+            .chain(&pt.y.limbs)
+            .chain(&pt.z.limbs)
+            .copied()
+            .collect();
     let out = b.call_hint(hint, &[N_LIMBS], &inputs);
 
-    let x_aff = BigUint { limbs: out[0..N_LIMBS].to_vec() };
-    let y_aff = BigUint { limbs: out[N_LIMBS..2 * N_LIMBS].to_vec() };
+    let x_aff = BigUint {
+        limbs: out[0..N_LIMBS].to_vec(),
+    };
+    let y_aff = BigUint {
+        limbs: out[N_LIMBS..2 * N_LIMBS].to_vec(),
+    };
 
     // Z ≢ 0 makes Z invertible, which is what makes the two checks below determining.
     let z_is_zero = f.is_zero_mod_p(b, &pt.z);
@@ -152,7 +155,12 @@ pub fn compress(b: &CircuitBuilder, f: &Fp, pt: &Point) -> [Wire; N_LIMBS] {
     let clear_top = b.add_constant_64(!(1u64 << 63));
     let top = b.band(y_aff.limbs[3], clear_top);
 
-    [y_aff.limbs[0], y_aff.limbs[1], y_aff.limbs[2], b.bor(top, sign)]
+    [
+        y_aff.limbs[0],
+        y_aff.limbs[1],
+        y_aff.limbs[2],
+        b.bor(top, sign),
+    ]
 }
 
 #[cfg(test)]
@@ -232,7 +240,11 @@ mod tests {
             let enc = (ED25519_BASEPOINT_POINT * Scalar::from_bytes_mod_order(bytes))
                 .compress()
                 .to_bytes();
-            if enc[31] & 0x80 != 0 { seen_set = true } else { seen_clear = true }
+            if enc[31] & 0x80 != 0 {
+                seen_set = true
+            } else {
+                seen_clear = true
+            }
         }
         assert!(
             seen_set && seen_clear,

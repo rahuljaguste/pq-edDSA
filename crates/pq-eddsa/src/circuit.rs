@@ -117,7 +117,14 @@ impl PqEddsaCircuit {
             b.assert_eq("hx", computed_hx[i], hx[i]);
         }
 
-        Self { relation, seed, rx, pk, msg, hx }
+        Self {
+            relation,
+            seed,
+            rx,
+            pk,
+            msg,
+            hx,
+        }
     }
 
     /// Populate every input from a seed and message.
@@ -173,12 +180,7 @@ impl PqEddsaCircuit {
         self.populate_private_with_rx(w, seed, &[0u8; 32]);
     }
 
-    pub fn populate_private_with_rx(
-        &self,
-        w: &mut WitnessFiller,
-        seed: &[u8; 32],
-        rx: &[u8; 32],
-    ) {
+    pub fn populate_private_with_rx(&self, w: &mut WitnessFiller, seed: &[u8; 32], rx: &[u8; 32]) {
         for i in 0..WORDS_32 {
             let mut word = [0u8; 8];
             word.copy_from_slice(&seed[8 * i..8 * i + 8]);
@@ -198,7 +200,11 @@ impl PqEddsaCircuit {
     /// Separated from population so tests can supply *inconsistent* public inputs — the
     /// case a negative test needs and an honest prover never produces.
     pub fn public_inputs(seed: &[u8; 32], msg: &[u8; 32]) -> PublicInputs {
-        PublicInputs { pk: derive_pk(seed), msg: *msg, hx: derive_hx(seed, msg, None) }
+        PublicInputs {
+            pk: derive_pk(seed),
+            msg: *msg,
+            hx: derive_hx(seed, msg, None),
+        }
     }
 
     /// The public inputs for this circuit's relation, given `rx`.
@@ -212,7 +218,11 @@ impl PqEddsaCircuit {
             Relation::Det => None,
             Relation::Rand => Some(rx),
         };
-        PublicInputs { pk: derive_pk(seed), msg: *msg, hx: derive_hx(seed, msg, rx) }
+        PublicInputs {
+            pk: derive_pk(seed),
+            msg: *msg,
+            hx: derive_hx(seed, msg, rx),
+        }
     }
 
     pub fn populate_public(&self, w: &mut WitnessFiller, pi: &PublicInputs) {
@@ -246,9 +256,15 @@ impl PqEddsaCircuit {
         rx: Option<&[u8; 32]>,
         pi: &PublicInputs,
     ) -> Result<()> {
-        ensure!(pi.pk == derive_pk(seed), "public key does not match the seed");
+        ensure!(
+            pi.pk == derive_pk(seed),
+            "public key does not match the seed"
+        );
         ensure!(pi.msg == *msg, "message does not match");
-        ensure!(pi.hx == derive_hx(seed, msg, rx), "hx does not match msg, seed and rx");
+        ensure!(
+            pi.hx == derive_hx(seed, msg, rx),
+            "hx does not match msg, seed and rx"
+        );
         Ok(())
     }
 }
@@ -276,7 +292,10 @@ pub fn public_words(
 
     // Overwrite the constants block, which the filler left zeroed.
     let consts = &cs.constraint_system().constants;
-    assert!(consts.len() <= public.len(), "constants exceed the public section");
+    assert!(
+        consts.len() <= public.len(),
+        "constants exceed the public section"
+    );
     public[..consts.len()].copy_from_slice(consts);
     public
 }

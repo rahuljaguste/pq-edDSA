@@ -52,7 +52,12 @@ impl Point {
     pub fn identity(b: &CircuitBuilder, f: &Fp) -> Self {
         let zero = f.constant(b, &num_bigint::BigUint::from(0u32));
         let one = f.constant(b, &num_bigint::BigUint::from(1u32));
-        Point { x: zero.clone(), y: one.clone(), z: one, t: zero }
+        Point {
+            x: zero.clone(),
+            y: one.clone(),
+            z: one,
+            t: zero,
+        }
     }
 
     /// Mixed addition against a niels-form point: seven field multiplications.
@@ -89,7 +94,11 @@ impl Point {
     pub fn niels_identity(b: &CircuitBuilder, f: &Fp) -> Niels {
         let zero = f.constant(b, &num_bigint::BigUint::from(0u32));
         let one = f.constant(b, &num_bigint::BigUint::from(1u32));
-        Niels { y_plus_x: one.clone(), y_minus_x: one, t2d: zero }
+        Niels {
+            y_plus_x: one.clone(),
+            y_minus_x: one,
+            t2d: zero,
+        }
     }
 }
 
@@ -146,7 +155,8 @@ mod tests {
 
         let cs = b.build();
         let mut w = cs.new_witness_filler();
-        cs.populate_wire_witness(&mut w).expect("constraints unsatisfiable");
+        cs.populate_wire_witness(&mut w)
+            .expect("constraints unsatisfiable");
         verify_constraints(cs.constraint_system(), &w.into_value_vec()).unwrap();
     }
 
@@ -264,7 +274,12 @@ mod witness_tests {
         let py = BigUint::new_witness(&b, N_LIMBS);
         let pz = BigUint::new_witness(&b, N_LIMBS);
         let pt = BigUint::new_witness(&b, N_LIMBS);
-        let point = Point { x: px.clone(), y: py.clone(), z: pz.clone(), t: pt.clone() };
+        let point = Point {
+            x: px.clone(),
+            y: py.clone(),
+            z: pz.clone(),
+            t: pt.clone(),
+        };
 
         let (ypx, ymx, t2d) = to_niels(&g);
         let niels = Niels {
@@ -294,7 +309,8 @@ mod witness_tests {
         py.populate_limbs(&mut w, &to_limbs(&g.1));
         pz.populate_limbs(&mut w, &to_limbs(&NB::from(1u32)));
         pt.populate_limbs(&mut w, &to_limbs(&((&g.0 * &g.1) % &p)));
-        cs.populate_wire_witness(&mut w).expect("constraints unsatisfiable");
+        cs.populate_wire_witness(&mut w)
+            .expect("constraints unsatisfiable");
         verify_constraints(cs.constraint_system(), &w.into_value_vec()).unwrap();
     }
 
@@ -311,7 +327,12 @@ mod witness_tests {
         let py = BigUint::new_witness(&b, N_LIMBS);
         let pz = BigUint::new_witness(&b, N_LIMBS);
         let pt = BigUint::new_witness(&b, N_LIMBS);
-        let point = Point { x: px.clone(), y: py.clone(), z: pz.clone(), t: pt.clone() };
+        let point = Point {
+            x: px.clone(),
+            y: py.clone(),
+            z: pz.clone(),
+            t: pt.clone(),
+        };
 
         let (ypx, ymx, t2d) = to_niels(&g);
         let niels = Niels {
@@ -345,7 +366,11 @@ mod cost {
     use binius_frontend::CircuitBuilder;
 
     use super::*;
-    use crate::{consts::N_LIMBS, field::Fp, host::{basepoint, to_niels}};
+    use crate::{
+        consts::N_LIMBS,
+        field::Fp,
+        host::{basepoint, to_niels},
+    };
 
     /// Build a chain of `n` mixed additions and return `(AND, IMUL)`.
     fn cost_of_chain(n: usize) -> (usize, usize) {
@@ -375,7 +400,7 @@ mod cost {
     ///
     /// Taking a difference between chain lengths cancels the fixed setup, so this is the
     /// true per-addition cost rather than an amortised one. Recorded rather than
-    /// asserted against a target: it is the measurement Task 4's projection rests on.
+    /// asserted against a target: it is the measurement the comb-window work's projection rests on.
     #[test]
     fn report_add_niels_cost() {
         let (a1, m1) = cost_of_chain(1);

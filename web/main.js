@@ -1,4 +1,4 @@
-// Task 10: client-side proving demo.
+// Client-side proving demo.
 //
 // All timing lives here rather than in Rust: `std::time::Instant` panics on
 // wasm32-unknown-unknown, so `performance.now()` around the calls is the only honest

@@ -54,7 +54,11 @@ enum Cmd {
     Prove {
         /// 32-byte seed, hex. PRIVATE — the proof never reveals it, but passing it here
         /// puts it in your shell history. Prefer --seed-file.
-        #[arg(long, conflicts_with = "seed_file", required_unless_present = "seed_file")]
+        #[arg(
+            long,
+            conflicts_with = "seed_file",
+            required_unless_present = "seed_file"
+        )]
         seed: Option<String>,
         /// Read the 32-byte hex seed from a file, or from stdin with `-`. Keeps the seed
         /// out of argv, and so out of shell history and `ps`.
@@ -142,7 +146,14 @@ fn main() -> Result<()> {
             println!("relation:         {:?}", Relation::from(relation));
         }
 
-        Cmd::Prove { seed, seed_file, msg, out, log_inv_rate, relation } => {
+        Cmd::Prove {
+            seed,
+            seed_file,
+            msg,
+            out,
+            log_inv_rate,
+            relation,
+        } => {
             let seed: [u8; 32] = parse_hex(&read_seed(seed, seed_file)?, "seed")?;
             let msg: [u8; 32] = match &msg {
                 Some(m) => parse_hex(m, "msg")?,
@@ -193,7 +204,14 @@ fn main() -> Result<()> {
             }
         }
 
-        Cmd::Verify { proof, pk, msg, hx, log_inv_rate, relation } => {
+        Cmd::Verify {
+            proof,
+            pk,
+            msg,
+            hx,
+            log_inv_rate,
+            relation,
+        } => {
             let pi = PublicInputs {
                 pk: parse_hex(&pk, "pk")?,
                 msg: match &msg {
@@ -239,16 +257,31 @@ mod tests {
     #[test]
     fn parse_hex_tolerates_surrounding_whitespace() {
         let want: [u8; 32] = parse_hex(SEED_HEX, "seed").unwrap();
-        assert_eq!(parse_hex::<32>(&format!("{SEED_HEX}\n"), "seed").unwrap(), want);
-        assert_eq!(parse_hex::<32>(&format!("  {SEED_HEX}  \n"), "seed").unwrap(), want);
-        assert_eq!(parse_hex::<32>(&format!("0x{SEED_HEX}\n"), "seed").unwrap(), want);
+        assert_eq!(
+            parse_hex::<32>(&format!("{SEED_HEX}\n"), "seed").unwrap(),
+            want
+        );
+        assert_eq!(
+            parse_hex::<32>(&format!("  {SEED_HEX}  \n"), "seed").unwrap(),
+            want
+        );
+        assert_eq!(
+            parse_hex::<32>(&format!("0x{SEED_HEX}\n"), "seed").unwrap(),
+            want
+        );
     }
 
     #[test]
     fn parse_hex_still_rejects_bad_input() {
         assert!(parse_hex::<32>("nothex", "seed").is_err());
-        assert!(parse_hex::<32>(&SEED_HEX[..62], "seed").is_err(), "short seed accepted");
-        assert!(parse_hex::<32>(&format!("{SEED_HEX}ff"), "seed").is_err(), "long seed accepted");
+        assert!(
+            parse_hex::<32>(&SEED_HEX[..62], "seed").is_err(),
+            "short seed accepted"
+        );
+        assert!(
+            parse_hex::<32>(&format!("{SEED_HEX}ff"), "seed").is_err(),
+            "long seed accepted"
+        );
         // Internal whitespace is not whitespace to trim; it is a malformed seed.
         assert!(parse_hex::<32>("9d61 b19d", "seed").is_err());
     }
@@ -264,7 +297,10 @@ mod tests {
         std::fs::write(&path, format!("{SEED_HEX}\n")).unwrap();
         let got = read_seed(None, Some(path.to_string_lossy().into_owned())).unwrap();
         std::fs::remove_file(&path).ok();
-        assert_eq!(parse_hex::<32>(&got, "seed").unwrap(), parse_hex::<32>(SEED_HEX, "seed").unwrap());
+        assert_eq!(
+            parse_hex::<32>(&got, "seed").unwrap(),
+            parse_hex::<32>(SEED_HEX, "seed").unwrap()
+        );
     }
 
     #[test]

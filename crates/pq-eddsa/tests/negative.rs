@@ -61,7 +61,10 @@ fn rejects_wrong_seed() {
 
     let mut wrong = seed;
     wrong[0] ^= 1;
-    assert!(!accepts(&wrong, &pi), "accepted a seed that does not derive pk");
+    assert!(
+        !accepts(&wrong, &pi),
+        "accepted a seed that does not derive pk"
+    );
 }
 
 /// A *different* valid seed, not merely a corrupted one — its own pk and hx are
@@ -81,7 +84,10 @@ fn rejects_wrong_pk() {
     let msg = [3u8; 32];
     let mut pi = PqEddsaCircuit::public_inputs(&seed, &msg);
     pi.pk[0] ^= 1;
-    assert!(!accepts(&seed, &pi), "accepted a pk that the seed does not derive");
+    assert!(
+        !accepts(&seed, &pi),
+        "accepted a pk that the seed does not derive"
+    );
 }
 
 /// Flipping the *sign bit* specifically — the one compression encodes from x's parity,
@@ -92,7 +98,10 @@ fn rejects_pk_with_flipped_sign_bit() {
     let msg = [3u8; 32];
     let mut pi = PqEddsaCircuit::public_inputs(&seed, &msg);
     pi.pk[31] ^= 0x80;
-    assert!(!accepts(&seed, &pi), "accepted a pk with the sign bit flipped");
+    assert!(
+        !accepts(&seed, &pi),
+        "accepted a pk with the sign bit flipped"
+    );
 }
 
 #[test]
@@ -101,7 +110,10 @@ fn rejects_wrong_hx() {
     let msg = [3u8; 32];
     let mut pi = PqEddsaCircuit::public_inputs(&seed, &msg);
     pi.hx[63] ^= 1;
-    assert!(!accepts(&seed, &pi), "accepted an hx that is not SHA-512(msg ‖ seed)");
+    assert!(
+        !accepts(&seed, &pi),
+        "accepted an hx that is not SHA-512(msg ‖ seed)"
+    );
 }
 
 /// Changing the message without updating `hx` must fail — otherwise `hx` would not bind
@@ -149,7 +161,10 @@ fn proof_for_one_statement_does_not_verify_against_another() {
     };
 
     // Control: against its own statement it must verify.
-    assert!(check(&pi), "honest proof failed to verify against its own statement");
+    assert!(
+        check(&pi),
+        "honest proof failed to verify against its own statement"
+    );
 
     // Against a different pk, hx, or msg it must not.
     let mut bad_pk = pi.clone();
@@ -225,19 +240,31 @@ fn check_relation_accepts_only_consistent_statements() {
     let msg = [9u8; 32];
     let pi = C::public_inputs(&seed, &msg);
 
-    assert!(C::check_relation(&seed, &msg, &pi).is_ok(), "rejected an honest statement");
+    assert!(
+        C::check_relation(&seed, &msg, &pi).is_ok(),
+        "rejected an honest statement"
+    );
 
     let mut bad_pk = pi.clone();
     bad_pk.pk[0] ^= 1;
-    assert!(C::check_relation(&seed, &msg, &bad_pk).is_err(), "missed a wrong pk");
+    assert!(
+        C::check_relation(&seed, &msg, &bad_pk).is_err(),
+        "missed a wrong pk"
+    );
 
     let mut bad_hx = pi.clone();
     bad_hx.hx[0] ^= 1;
-    assert!(C::check_relation(&seed, &msg, &bad_hx).is_err(), "missed a wrong hx");
+    assert!(
+        C::check_relation(&seed, &msg, &bad_hx).is_err(),
+        "missed a wrong hx"
+    );
 
     let mut bad_msg = pi.clone();
     bad_msg.msg[0] ^= 1;
-    assert!(C::check_relation(&seed, &msg, &bad_msg).is_err(), "missed a wrong msg");
+    assert!(
+        C::check_relation(&seed, &msg, &bad_msg).is_err(),
+        "missed a wrong msg"
+    );
 
     let mut wrong_seed = seed;
     wrong_seed[0] ^= 1;
@@ -269,7 +296,10 @@ fn every_hx_word_is_constrained() {
         // And the low nibble specifically, which is what the shell check mangled.
         let mut pi2 = PqEddsaCircuit::public_inputs(&seed, &msg);
         pi2.hx[byte] ^= 0x0F;
-        assert!(!accepts(&seed, &pi2), "hx byte {byte} low nibble unconstrained");
+        assert!(
+            !accepts(&seed, &pi2),
+            "hx byte {byte} low nibble unconstrained"
+        );
     }
 }
 

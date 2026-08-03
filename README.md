@@ -22,7 +22,7 @@ identified their own bottleneck and asked for exactly this:
 > — [PQChain README](https://github.com/SoundnessLabs/PQChain)
 
 They attribute the cost to a **field requirement of the proving system**, not to their
-circuit. Binius64 is built around not having that requirement — it computes natively over
+circuit. Binius64 is built around not having that requirement: it computes natively over
 64-bit machine words rather than emulating a foreign field, which is precisely the
 constraint they name.
 
@@ -31,7 +31,7 @@ FFT-friendly-field requirement give you on this relation?* The numbers below mea
 They are a property of the two proving systems, not of the two implementations.
 
 > **Research artifact.** Not audited, not production-ready. The zero-knowledge claim in
-> particular is unaudited — see [Soundness](#soundness). Do not use this to secure real
+> particular is unaudited; see [Soundness](#soundness). Do not use this to secure real
 > assets.
 
 ## What it proves
@@ -44,7 +44,7 @@ R_rand = { (pk, msg, hx) | ∃ seed, rx  : pk = clamp(SHA-512(seed)[:32])·G ∧
 Both are implemented. `R_det` (Eq. 2) matches PQChain and is the **CLI** default, so
 benchmarks compare like with like. `R_rand` (Eq. 1) is **the relation the paper's Theorem 2
 is actually proved over**; it costs +5 AND constraints and nothing measurable in time, so
-the [browser demo](#browser-proving) defaults to it instead — see [Relations](#relations).
+the [browser demo](#browser-proving) defaults to it instead. See [Relations](#relations).
 
 ## Results
 
@@ -60,11 +60,11 @@ quoting these.
 | host | Apple M1 Pro, 8 cores | Apple M4 Pro, 12 cores | *ours is slower silicon* |
 | **soundness** | **96-bit classical** | **~128-bit classical** | **ours is weaker** |
 
-**The last two rows matter.** Our hardware is slower, which understates the gap; our
+The last two rows matter. Our hardware is slower, which understates the gap; our
 soundness is lower, which overstates it. Neither is negligible and both are quantified
 below.
 
-### Why — and it is the reason PQChain gave
+### Why, and why it is the reason PQChain gave
 
 PQChain reports that non-native field emulation and the public-key consistency check are
 **~70% of its 4.9M constraints**. That is not an implementation inefficiency; it is the
@@ -72,7 +72,7 @@ price of representing `F_p` for `p = 2^255 − 19` inside BN254, in three 85-bit
 because the proving system needs an FFT-friendly field.
 
 Binius64 has no such requirement. It computes over 64-bit words with a native 64×64→128
-integer-multiply constraint, so 255-bit arithmetic is ordinary 4-limb schoolbook bignum —
+integer-multiply constraint, so 255-bit arithmetic is ordinary 4-limb schoolbook bignum, with
 no emulation layer to pay for. SHA-512, being 64-bit-word-oriented, is likewise native at
 1,830 AND constraints per compression block.
 
@@ -89,12 +89,12 @@ paper's actual use case:
 - **Soundness.** Ligetron carries ~128-bit classical; we carry 96-bit, and upstream
   Binius64 offers no way to raise it. See [Soundness](#soundness). For a *post-quantum
   readiness* artifact this is the wrong direction to move.
-- **Browser proving.** Ligetron was designed for it — WebAssembly with WebGPU shaders, and
+- **Browser proving.** Ligetron was designed for it: WebAssembly with WebGPU shaders, and
   PQChain ships a hosted demo with wallet integration. Ours runs in a browser too
   ([below](#browser-proving)), but it costs **14.8× native** for a reason that is not going
   away soon: WebAssembly has no carry-less multiply instruction, so GF(2^128) multiplication
-  falls back to software. Binius64 also has no GPU path. On client-side proving — which is
-  central to the paper's argument, since the seed must never leave the user's machine —
+  falls back to software. Binius64 also has no GPU path. On client-side proving, which is
+  central to the paper's argument since the seed must never leave the user's machine,
   Ligetron is the more mature choice today.
 - **Maturity.** Ligetron is a released zkVM. Binius64's zero-knowledge path is new enough
   that its blinding parameter still carries a `TODO` upstream.
@@ -106,7 +106,7 @@ difference and it is not in our favour.**
 
 Upstream Binius64 fixes `SECURITY_BITS = 96` (`crates/verifier/src/verify.rs`) and
 `ZKVerifier::setup` accepts no override, so 96 is the only setting available. Reaching even
-112 would require patching upstream, and the narrow field caps there regardless — the
+112 would require patching upstream, and the narrow field caps there regardless: the
 logUp\* term contributes a fixed `2^16/|F| = 2^-112` that no query budget affects.
 
 | configuration | field | hash | classical | quantum (√Grover) |
@@ -116,14 +116,14 @@ logUp\* term contributes a fixed `2^16/|F| = 2^-112` that no query budget affect
 | binius64, query budget raised | GF(2^128) | SHA-256 | 112 (logUp\* cap) | ~56 |
 | GF(2^256) challenges, SHA-512 | GF(2^256) | SHA-512 | ~240 | ~120 |
 
-**Ligetron's figure is derived here, not published by Ligetron** — its codebase contains no
+Ligetron's figure is derived here, not published by Ligetron. Its codebase contains no
 soundness documentation (no occurrence of "soundness", "security parameter", or "bits of
 security"). From `include/params.hpp`: 192 column openings, rate `ρ = 8192/32768 = 1/4`,
 one repetition of each test, SHA-256 for Merkle and Fiat–Shamir, BN254 scalar field.
 Interleaved Reed–Solomon proximity at the unique-decoding bound gives per-column pass
 probability `(1+ρ)/2 = 5/8`, so the query phase is `(5/8)^192 = 2^-130.2`; field terms are
 `2^15/2^254 = 2^-239`, negligible; SHA-256's `~2^-128` birthday bound therefore binds. The
-unique-decoding assumption is the paper's own — it states Ligetron "is instantiated using
+unique-decoding assumption is the paper's own; it states Ligetron "is instantiated using
 proximity within the unique-decoding bound".
 
 Both derivations should be checked rather than taken on trust.
@@ -131,28 +131,28 @@ Both derivations should be checked rather than taken on trust.
 ### The zero-knowledge claim is unaudited
 
 Binius64's ZK blinding parameter `n_dummy_constraints` is set to `2` upstream with a
-`// TODO: Document why these are necessary`. Its sibling `n_dummy_wires` *is* derived — one
+`// TODO: Document why these are necessary`. Its sibling `n_dummy_wires` *is* derived: one
 random wire per FRI query opening. This one is not.
 
 We measured that raising it is free up to 2,132 for this circuit, and recommend 2,048
-(1,024× the default) on that basis — but upstream exposes no override, so it is recorded
+(1,024× the default) on that basis, but upstream exposes no override, so it is recorded
 rather than applied. **This does not establish that 2 is insufficient.** Zero-knowledge is a
 simulation property; a real answer needs a simulator construction. See
-[`docs/spikes/2026-08-03-task8-blinding.md`](docs/spikes/2026-08-03-task8-blinding.md).
+[`docs/notes/zk-blinding-parameter.md`](docs/notes/zk-blinding-parameter.md).
 
 That matters more here than in most applications, because the witness is a private key.
 
 ## Relations
 
 Under `R_det`, `hx = SHA-512(msg ‖ seed)` is a **deterministic** function of the seed, so
-anyone holding the public `msg` and `hx` can test candidate seeds offline — `hx` is
+anyone holding the public `msg` and `hx` can test candidate seeds offline. `hx` is
 effectively an unsalted commitment to the private key. Against a full-entropy 256-bit seed
 that is not a practical attack, which is presumably why PQChain ships it. But it bites for
 any seed drawn from a searchable space: a weak mnemonic, a low-entropy RNG, a seed derived
 from something guessable. Ruling that out is exactly what `rx` does, and why Theorem 2 is
 stated over Eq. 1.
 
-`R_rand` costs **+5 AND constraints and no extra multiplications** — `msg ‖ seed ‖ rx` is
+`R_rand` costs **+5 AND constraints and no extra multiplications**: `msg ‖ seed ‖ rx` is
 96 bytes, still inside a single 128-byte SHA-512 block. In the browser that is below the
 noise floor: two cold browsers per relation put warm proving at 1,681–1,684 ms for `R_det`
 and 1,681–1,689 ms for `R_rand`, a gap smaller than the one between two runs of the same
@@ -184,18 +184,18 @@ cargo run --release --bin cli -- verify \
 ```
 
 `--seed <hex>` still exists, and the examples elsewhere in this README use it with RFC 8032
-test vector 1 — a published seed with nothing to protect. For a seed you care about, use
+test vector 1, a published seed with nothing to protect. For a seed you care about, use
 `--seed-file`. Zero-knowledge protects the seed from the *verifier*; it does nothing about
 the shell you typed it into.
 
 The verifier reconstructs the circuit's public input words from `(pk, msg, hx)` alone
-rather than trusting a prover-supplied blob — a proof is valid for *whatever* public input
+and never trusts a prover-supplied blob. A proof is valid for *whatever* public input
 accompanies it, so a verifier that takes the prover's word can be handed a sound proof of a
 different statement.
 
 ## Browser proving
 
-The seed must never leave the user's machine — that is the paper's premise, and it only
+The seed must never leave the user's machine. That is the paper's premise, and it only
 holds if the proof is generated where the seed already is. So it runs in the browser:
 
 ```bash
@@ -204,10 +204,10 @@ holds if the proof is generated where the seed already is. So it runs in the bro
 open http://localhost:8742/
 ```
 
-Paste or generate a seed, click prove, watch it verify — and click *Verify against a
+Paste or generate a seed, click prove, watch it verify, then click *Verify against a
 tampered statement* to watch it refuse. Nothing is transmitted: the page is static files
-with no server component, and after the module loads it issues no network requests at all
-— which is checkable in DevTools, not just asserted here.
+with no server component, and after the module loads it issues no network requests at all,
+which is checkable in DevTools rather than merely asserted here.
 
 Measured in Chrome 150 on the same M1 Pro, single-threaded, cold profile with caching
 disabled, two independent browsers per relation:
@@ -220,8 +220,8 @@ disabled, two independent browsers per relation:
 | proof size | 515 KiB | 515 KiB | 515 KiB |
 | peak wasm heap | 213 MB | 213 MB | — |
 
-**`R_rand` is quoted first here, deliberately.** The native table above uses `R_det` for
-parity with PQChain — comparing like with like. This section makes no PQChain comparison,
+`R_rand` is quoted first here deliberately. The native table above uses `R_det` for
+parity with PQChain, comparing like with like. This section makes no PQChain comparison,
 so parity buys nothing, and the relation that belongs in a *deployment* story is the one
 the paper's Theorem 2 is proved over. The demo page defaults to `R_rand` for the same
 reason, while the CLI keeps `R_det` for benchmark parity.
@@ -233,7 +233,7 @@ browser penalty is **14.8× on proving and 4.7× on verification**.
 The browser's `pk`, `hx` and proof size match the native CLI byte for byte.
 
 **Why 15×, and why `+simd128` does not fix it.** binius64 multiplies in GF(2^128) with a
-hardware carry-less multiply on both native architectures — `vmull_p64` on aarch64,
+hardware carry-less multiply on both native architectures: `vmull_p64` on aarch64,
 `_mm_clmulepi64_si128` on x86-64. WebAssembly has no such instruction, so wasm32 falls
 through to a software GHASH multiply. Enabling `+simd128` (with our upstream fix) buys
 **0.7%**, because the wasm SIMD module can only accelerate lane splitting, not the
@@ -241,7 +241,7 @@ multiply. This is a property of the field, not of this circuit, and would apply 
 GF(2^128) prover targeting the web today.
 
 Full methodology, the `R_rand` figures, and the SIMD comparison:
-[`docs/spikes/2026-08-03-task10-browser.md`](docs/spikes/2026-08-03-task10-browser.md).
+[`docs/notes/browser-proving.md`](docs/notes/browser-proving.md).
 
 We deliberately do **not** compare this to PQChain's 5.4 s: their README does not say
 whether that figure is a browser measurement, and we have not re-run it. Comparing a
@@ -261,7 +261,7 @@ Please read this before quoting the numbers above.
 - **System load at measurement: ~6 on 8 cores.** Not a quiescent machine. A quieter host
   would likely be faster, so these figures are conservative rather than flattering.
 - **PQChain's figures** are from its own README (average of 100 runs, M4 Pro 12-core). We
-  have not re-run them, so this is not a controlled comparison — different silicon,
+  have not re-run them, so this is not a controlled comparison: different silicon,
   different day, their measurement not ours.
 - **Where PQChain's README and the paper disagree, we use the figure more favourable to
   PQChain.** The README reports 5.4 s proving; the paper reports 6.2 s. Using 6.2 s would
@@ -291,23 +291,23 @@ The interesting decisions, with measurements, are in
 - **`F_p` modulo `2p`.** `p = 2^255 − 19` is not limb-aligned, so binius64's
   pseudo-Mersenne reduction rejects it. `2p = 2^256 − 38` *is*, with a one-limb subtrahend,
   so the existing fast path applies unmodified. Field elements become non-canonical
-  representatives in `[0, 2p)`, canonicalised only where bits — not residues — are read.
+  representatives in `[0, 2p)`, canonicalised only where bits, not residues, are read.
 - **Comb window = 6, chosen by measuring proving time, not constraint counts.** Ranking by
   AND count picks 5 and is wrong: `w = 6` has ~9% more AND constraints yet proves ~6%
   faster, because it drops the padded IMUL size from 2^14 to 2^13.
 - **Signed-digit recoding** halves the multiplexer tables (33 entries, not 64), taking AND
-  from 70,252 to 57,314 and crossing 2^17 → 2^16. Worth ~5%, not more — AND was never the
+  from 70,252 to 57,314 and crossing 2^17 → 2^16. Worth ~5%, not more; AND was never the
   bottleneck.
 - **IMUL is at its practical floor.** Even a hypothetical zero-cost modular reduction stays
   in the same 2^13 padding tier.
 - **No in-circuit inversion.** Affine coordinates arrive as a hint, pinned by two
-  multiplications plus canonicality — cheaper than an exponentiation, and forced by `2p`
+  multiplications plus canonicality. Cheaper than an exponentiation, and forced by `2p`
   being composite.
 
 ## Testing
 
 92 tests. The suite is built around negative tests, because an under-constrained circuit
-passes every positive test — it proves true statements correctly and false ones too.
+passes every positive test: it proves true statements correctly and false ones too.
 
 - Differential against `curve25519-dalek` at every window size, plus RFC 8032 vectors.
 - **Non-canonical representative** property tests drawing from all of `[0, 2p)`, including
@@ -315,7 +315,7 @@ passes every positive test — it proves true statements correctly and false one
   missing canonicalisation.
 - **Mutation-verified**: each negative test is checked to fail when the assertion it guards
   is deleted. A test that cannot fail proves nothing.
-- Circuit-shape invariance — the constraint system must not depend on the witness. PQChain
+- Circuit-shape invariance: the constraint system must not depend on the witness. PQChain
   shipped a bug of exactly this class (`fix/ed25519-scalar-mul-secret-leak`); in Binius64
   it is structurally impossible, since the graph is fixed before any witness exists.
 - The browser bindings are covered natively, not only by a browser run: `pq-eddsa-wasm`
@@ -327,7 +327,7 @@ passes every positive test — it proves true statements correctly and false one
 ## Upstream contribution
 
 While porting, we found that `binius-field` does not compile for `wasm32-unknown-unknown`
-with `+simd128` — a module orphaned by a refactor. Submitted as
+with `+simd128`, a module orphaned by a refactor. Submitted as
 [binius-zk/binius64#1993](https://github.com/binius-zk/binius64/pull/1993), with the
 measurement showing it is worth 0.7% on this circuit, so it is offered as a correctness
 fix rather than an optimisation. The demo does not need it: omit the flag and wasm32
@@ -337,7 +337,7 @@ builds today.
 
 - [Baldimtsi, Chalkias, Roy, Sedaghat](https://eprint.iacr.org/2025/1368.pdf) for the paper.
 - [SoundnessLabs/PQChain](https://github.com/SoundnessLabs/PQChain) (Apache-2.0) for the
-  reference implementation this is measured against — and specifically for its
+  reference implementation this is measured against, and specifically for its
   `fix/ed25519-scalar-mul-secret-leak` commit, which named a bug class (constraint-graph
   shape depending on the secret scalar) that this repository now tests for explicitly.
 - [Irreducible](https://www.irreducible.com) and the Binius developers for

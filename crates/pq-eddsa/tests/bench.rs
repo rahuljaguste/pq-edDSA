@@ -15,8 +15,6 @@ use binius_verifier::{
 };
 use pq_eddsa::circuit::PqEddsaCircuit;
 
-
-
 const RUNS: usize = 30;
 
 #[test]
@@ -46,12 +44,11 @@ where
     S: binius_hash::binary_merkle_tree::HashSuite + Clone,
     digest::Output<S::LeafHash>: binius_utils::SerializeBytes + binius_utils::DeserializeBytes,
 {
-    let seed: [u8; 32] = hex::decode(
-        "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
-    )
-    .unwrap()
-    .try_into()
-    .unwrap();
+    let seed: [u8; 32] =
+        hex::decode("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+            .unwrap()
+            .try_into()
+            .unwrap();
     let msg = [0u8; 32];
 
     let t_build = std::time::Instant::now();
@@ -125,9 +122,19 @@ where
     println!("prover setup:    {setup_ms} ms");
     let (pm, pmed, pmin, pmax) = stats(&prove_ms);
     let (vm, vmed, vmin, vmax) = stats(&verify_ms);
-    println!("prove:           mean {pm:.1}  median {pmed}  min {pmin}  max {pmax}  (n={})", prove_ms.len());
-    println!("verify:          mean {vm:.1}  median {vmed}  min {vmin}  max {vmax}  (n={})", verify_ms.len());
-    println!("proof size:      {} bytes ({} KiB)", proof_size, proof_size / 1024);
+    println!(
+        "prove:           mean {pm:.1}  median {pmed}  min {pmin}  max {pmax}  (n={})",
+        prove_ms.len()
+    );
+    println!(
+        "verify:          mean {vm:.1}  median {vmed}  min {vmin}  max {vmax}  (n={})",
+        verify_ms.len()
+    );
+    println!(
+        "proof size:      {} bytes ({} KiB)",
+        proof_size,
+        proof_size / 1024
+    );
     println!();
     println!("PQChain (Ligetron, M4 Pro 12-core, ~128-bit soundness, avg of 100):");
     println!("  prove 6200 ms | verify 2300 ms | proof 5.4 MB | 4,924,225 constraints");

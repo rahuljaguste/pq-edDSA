@@ -25,7 +25,7 @@
 //! and measured **0.7%** on this circuit with the fix applied — the module aliases the
 //! portable field arithmetic and only its lane splitting uses intrinsics, and wasm has no
 //! carry-less multiply for it to reach. See
-//! `docs/spikes/2026-08-03-task10-browser.md`.
+//! `docs/notes/browser-proving.md`.
 
 use binius_frontend::{Circuit, CircuitBuilder};
 use binius_verifier::{
@@ -73,7 +73,13 @@ impl Session {
         let (verifier, prover) = ProofConfig { log_inv_rate }
             .setup(cs.constraint_system().clone())
             .map_err(|e| e.to_string())?;
-        Ok(Self { relation, circuit, cs, prover, verifier })
+        Ok(Self {
+            relation,
+            circuit,
+            cs,
+            prover,
+            verifier,
+        })
     }
 
     pub fn stats(&self) -> Stats {
@@ -92,7 +98,10 @@ impl Session {
     /// returned: it is witness, not statement, and only `hx` is published.
     pub fn prove(&self, seed: &[u8; 32], msg: &[u8; 32]) -> Result<Proof, String> {
         let mut w = self.cs.new_witness_filler();
-        let rx = self.circuit.populate_randomised(&mut w, seed, msg).map_err(|e| e.to_string())?;
+        let rx = self
+            .circuit
+            .populate_randomised(&mut w, seed, msg)
+            .map_err(|e| e.to_string())?;
         let public = self.circuit.public_inputs_with_rx(seed, msg, &rx);
 
         // Fail readably rather than handing the prover an unsatisfiable system.
@@ -111,7 +120,10 @@ impl Session {
         self.prover
             .prove(&witness, &mut rng, &mut tr)
             .map_err(|e| format!("prove failed: {e:?}"))?;
-        Ok(Proof { bytes: tr.finalize(), public })
+        Ok(Proof {
+            bytes: tr.finalize(),
+            public,
+        })
     }
 
     /// Verify a proof against a statement.
@@ -123,8 +135,11 @@ impl Session {
     pub fn verify(&self, proof: &[u8], public: &PublicInputs) -> Result<(), String> {
         let words = public_words(&self.cs, &self.circuit, public);
         let mut vt = VerifierTranscript::new(StdChallenger::default(), proof.to_vec());
-        self.verifier.verify(&words, &mut vt).map_err(|e| format!("verification failed: {e:?}"))?;
-        vt.finalize().map_err(|e| format!("transcript finalize failed: {e:?}"))
+        self.verifier
+            .verify(&words, &mut vt)
+            .map_err(|e| format!("verification failed: {e:?}"))?;
+        vt.finalize()
+            .map_err(|e| format!("transcript finalize failed: {e:?}"))
     }
 }
 
@@ -132,13 +147,14 @@ fn parse_relation(s: &str) -> Result<Relation, String> {
     match s {
         "det" => Ok(Relation::Det),
         "rand" => Ok(Relation::Rand),
-        other => Err(format!("unknown relation {other:?}; expected \"det\" or \"rand\"")),
+        other => Err(format!(
+            "unknown relation {other:?}; expected \"det\" or \"rand\""
+        )),
     }
 }
 
 fn fixed<const N: usize>(bytes: &[u8], what: &str) -> Result<[u8; N], String> {
-    <[u8; N]>::try_from(bytes)
-        .map_err(|_| format!("{what} must be {N} bytes, got {}", bytes.len()))
+    <[u8; N]>::try_from(bytes).map_err(|_| format!("{what} must be {N} bytes, got {}", bytes.len()))
 }
 
 fn from_hex<const N: usize>(s: &str, what: &str) -> Result<[u8; N], String> {
@@ -202,7 +218,9 @@ impl JsSession {
     #[wasm_bindgen(constructor)]
     pub fn new(relation: &str, log_inv_rate: usize) -> Result<JsSession, JsError> {
         let relation = parse_relation(relation).map_err(|e| JsError::new(&e))?;
-        Session::new(relation, log_inv_rate).map(JsSession).map_err(|e| JsError::new(&e))
+        Session::new(relation, log_inv_rate)
+            .map(JsSession)
+            .map_err(|e| JsError::new(&e))
     }
 
     #[wasm_bindgen(getter)]
@@ -231,7 +249,10 @@ impl JsSession {
         let seed = fixed::<32>(seed, "seed").map_err(|e| JsError::new(&e))?;
         let msg = fixed::<32>(msg, "msg").map_err(|e| JsError::new(&e))?;
         let p = self.0.prove(&seed, &msg).map_err(|e| JsError::new(&e))?;
-        Ok(JsProof { bytes: p.bytes, public: p.public })
+        Ok(JsProof {
+            bytes: p.bytes,
+            public: p.public,
+        })
     }
 
     /// Verify a proof against a hex statement. Throws if it does not verify.
@@ -321,11 +342,17 @@ mod tests {
 
         let mut bad = p.public.clone();
         bad.pk[0] ^= 1;
-        assert!(s.verify(&p.bytes, &bad).is_err(), "accepted a proof for a different pk");
+        assert!(
+            s.verify(&p.bytes, &bad).is_err(),
+            "accepted a proof for a different pk"
+        );
 
         let mut bad = p.public.clone();
         bad.hx[0] ^= 1;
-        assert!(s.verify(&p.bytes, &bad).is_err(), "accepted a proof for a different hx");
+        assert!(
+            s.verify(&p.bytes, &bad).is_err(),
+            "accepted a proof for a different hx"
+        );
     }
 
     #[test]
@@ -336,7 +363,10 @@ mod tests {
         let mut bytes = p.bytes.clone();
         let last = bytes.len() - 1;
         bytes[last] ^= 1;
-        assert!(s.verify(&bytes, &p.public).is_err(), "accepted a corrupted proof");
+        assert!(
+            s.verify(&bytes, &p.public).is_err(),
+            "accepted a corrupted proof"
+        );
     }
 
     #[test]
@@ -354,6 +384,9 @@ mod tests {
         assert!(from_hex::<32>("zz", "pk").is_err());
         // A hex statement from the CLI carries no 0x prefix; both forms must work.
         assert_eq!(from_hex::<32>(&hex::encode(PK), "pk").unwrap(), PK);
-        assert_eq!(from_hex::<32>(&format!("0x{}", hex::encode(PK)), "pk").unwrap(), PK);
+        assert_eq!(
+            from_hex::<32>(&format!("0x{}", hex::encode(PK)), "pk").unwrap(),
+            PK
+        );
     }
 }

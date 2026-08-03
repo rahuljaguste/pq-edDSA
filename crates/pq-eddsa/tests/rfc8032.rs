@@ -40,11 +40,7 @@ fn seed_of(hexed: &str) -> [u8; 32] {
 fn host_derivation_matches_rfc8032() {
     for (seed_hex, pk_hex) in VECTORS {
         let seed = seed_of(seed_hex);
-        assert_eq!(
-            hex::encode(derive_pk(&seed)),
-            *pk_hex,
-            "seed {seed_hex}"
-        );
+        assert_eq!(hex::encode(derive_pk(&seed)), *pk_hex, "seed {seed_hex}");
     }
 }
 
@@ -54,7 +50,11 @@ fn host_derivation_matches_dalek() {
     for (seed_hex, _) in VECTORS {
         let seed = seed_of(seed_hex);
         let sk = ed25519_dalek::SigningKey::from_bytes(&seed);
-        assert_eq!(derive_pk(&seed), sk.verifying_key().to_bytes(), "seed {seed_hex}");
+        assert_eq!(
+            derive_pk(&seed),
+            sk.verifying_key().to_bytes(),
+            "seed {seed_hex}"
+        );
     }
 }
 
@@ -111,8 +111,16 @@ fn hx_depends_on_both_inputs() {
     let s2 = seed_of(VECTORS[1].0);
     let m1 = [0u8; 32];
     let m2 = [1u8; 32];
-    assert_ne!(derive_hx(&s1, &m1, None), derive_hx(&s1, &m2, None), "hx ignored the message");
-    assert_ne!(derive_hx(&s1, &m1, None), derive_hx(&s2, &m1, None), "hx ignored the seed");
+    assert_ne!(
+        derive_hx(&s1, &m1, None),
+        derive_hx(&s1, &m2, None),
+        "hx ignored the message"
+    );
+    assert_ne!(
+        derive_hx(&s1, &m1, None),
+        derive_hx(&s2, &m1, None),
+        "hx ignored the seed"
+    );
 }
 
 /// The verifier's reconstruction of the public section must match the prover's exactly.

@@ -90,7 +90,11 @@ fn relations_are_distinct() {
         let s = cs.constraint_system();
         (s.n_and_constraints(), s.n_private)
     };
-    assert_ne!(shape(Relation::Det), shape(Relation::Rand), "shapes must differ");
+    assert_ne!(
+        shape(Relation::Det),
+        shape(Relation::Rand),
+        "shapes must differ"
+    );
 
     // A Det statement (hx without rx) must not satisfy the Rand circuit.
     let b = CircuitBuilder::new();
@@ -121,7 +125,10 @@ fn rand_costs_almost_nothing() {
     let (rand_and, rand_imul) = count(Relation::Rand);
 
     println!("  Det  {det_and} AND, {det_imul} IMUL");
-    println!("  Rand {rand_and} AND, {rand_imul} IMUL  (+{} AND)", rand_and - det_and);
+    println!(
+        "  Rand {rand_and} AND, {rand_imul} IMUL  (+{} AND)",
+        rand_and - det_and
+    );
 
     assert_eq!(det_imul, rand_imul, "Rand must add no multiplications");
     assert!(
