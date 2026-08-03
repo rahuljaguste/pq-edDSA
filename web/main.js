@@ -1,0 +1,164 @@
+// Task 10: client-side proving demo.
+//
+// All timing lives here rather than in Rust: `std::time::Instant` panics on
+// wasm32-unknown-unknown, so `performance.now()` around the calls is the only honest
+// source. Every number the page displays was measured in this tab, on this machine.
+
+import init, { PqEddsa, derive_pk_hex } from './pkg/pq_eddsa_wasm.js';
+
+const $ = (id) => document.getElementById(id);
+const ms = (t) => Math.round((performance.now() - t) * 10) / 10;
+
+const status = $('status');
+const setStatus = (text, cls) => {
+  status.textContent = text;
+  status.className = cls || '';
+};
+
+// One session per relation. Setup is the expensive part and is worth keeping.
+const sessions = new Map();
+let last = null; // { proof, relation }
+
+const hexOf = (input, bytes, what) => {
+  const s = input.value.trim().replace(/^0x/, '');
+  if (!/^[0-9a-fA-F]*$/.test(s)) throw new Error(`${what} is not hex`);
+  if (s.length !== bytes * 2) {
+    throw new Error(`${what} must be ${bytes * 2} hex characters, got ${s.length}`);
+  }
+  const out = new Uint8Array(bytes);
+  for (let i = 0; i < bytes; i++) out[i] = parseInt(s.slice(2 * i, 2 * i + 2), 16);
+  return out;
+};
+
+const toHex = (u8) => Array.from(u8, (b) => b.toString(16).padStart(2, '0')).join('');
+
+$('gen').onclick = () => {
+  // crypto.getRandomValues, not Math.random: this is a key, even a throwaway one.
+  $('seed').value = toHex(crypto.getRandomValues(new Uint8Array(32)));
+  previewPk();
+};
+
+// Show the public key as soon as a seed is present — it makes the split between secret
+// and statement concrete before anyone waits two seconds for a proof.
+const previewPk = () => {
+  try {
+    const pk = derive_pk_hex(hexOf($('seed'), 32, 'seed'));
+    setStatus(`pk = ${pk}`);
+  } catch {
+    /* half-typed seed; say nothing */
+  }
+};
+$('seed').addEventListener('input', previewPk);
+
+const row = (label, value) => `<tr><th>${label}</th><td class="n">${value}</td></tr>`;
+
+$('prove').onclick = async () => {
+  let seed, msg;
+  try {
+    seed = hexOf($('seed'), 32, 'seed');
+    msg = hexOf($('msg'), 32, 'msg');
+  } catch (e) {
+    setStatus(e.message, 'bad');
+    return;
+  }
+  const relation = $('relation').value;
+
+  for (const b of ['prove', 'verify', 'tamper', 'download']) $(b).disabled = true;
+  const timings = [];
+
+  try {
+    let session = sessions.get(relation);
+    if (!session) {
+      setStatus(`Building the circuit and setting up the prover (${relation})… the tab will freeze.`);
+      await paint();
+      const t = performance.now();
+      session = new PqEddsa(relation, 1);
+      timings.push(['circuit build + prover setup (one-time)', `${ms(t)} ms`]);
+      sessions.set(relation, session);
+      $('shape').textContent =
+        `Circuit: ${session.and_constraints.toLocaleString()} AND + ` +
+        `${session.imul_constraints.toLocaleString()} IMUL constraints, ` +
+        `${session.private_wires.toLocaleString()} private wires, ` +
+        `${session.security_bits}-bit classical soundness.`;
+    }
+
+    setStatus('Proving… the tab will freeze for a couple of seconds.');
+    await paint();
+    const t1 = performance.now();
+    const proof = session.prove(seed, msg);
+    timings.push(['prove', `${ms(t1)} ms`]);
+
+    // wasm-bindgen objects are not garbage collected on the Rust side; a half-megabyte
+    // proof per click adds up over a demo session.
+    if (last) last.proof.free();
+
+    const bytes = proof.bytes;
+    const t2 = performance.now();
+    session.verify(bytes, proof.pk, proof.msg, proof.hx);
+    timings.push(['verify', `${ms(t2)} ms`]);
+    timings.push(['proof size', `${(bytes.length / 1024).toFixed(1)} KiB`]);
+
+    $('out-pk').textContent = proof.pk;
+    $('out-msg').textContent = proof.msg;
+    $('out-hx').textContent = proof.hx;
+    $('timings').innerHTML = timings.map(([k, v]) => row(k, v)).join('');
+    $('results').hidden = false;
+    last = { proof, bytes, relation };
+    setStatus('Proof generated and verified, here in this tab.', 'ok');
+    for (const b of ['verify', 'tamper', 'download']) $(b).disabled = false;
+  } catch (e) {
+    setStatus(String(e && e.message ? e.message : e), 'bad');
+  } finally {
+    $('prove').disabled = false;
+  }
+};
+
+$('verify').onclick = async () => {
+  const { proof, bytes, relation } = last;
+  await paint();
+  const t = performance.now();
+  try {
+    sessions.get(relation).verify(bytes, proof.pk, proof.msg, proof.hx);
+    setStatus(`Verified in ${ms(t)} ms.`, 'ok');
+  } catch (e) {
+    setStatus(`Unexpected: ${e.message}`, 'bad');
+  }
+};
+
+// The honest half of the demo. A proof is valid for whatever statement accompanies it,
+// so the interesting question is not "does it verify" but "does it stop verifying when
+// the statement changes". Flip one bit of pk and watch it fail.
+$('tamper').onclick = async () => {
+  const { proof, bytes, relation } = last;
+  const flipped = (proof.pk.slice(0, 1) === '0' ? '1' : '0') + proof.pk.slice(1);
+  await paint();
+  try {
+    sessions.get(relation).verify(bytes, flipped, proof.msg, proof.hx);
+    setStatus('Tampered statement was ACCEPTED — that is a bug, please report it.', 'bad');
+  } catch {
+    setStatus(`Rejected, as it must be: the proof does not verify against pk ${flipped.slice(0, 16)}…`, 'ok');
+  }
+};
+
+$('download').onclick = () => {
+  const blob = new Blob([last.bytes], { type: 'application/octet-stream' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `pq-eddsa-${last.relation}-${last.proof.pk.slice(0, 8)}.proof`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setStatus(
+    'Downloaded. Check it against the native verifier: ' +
+      'cargo run --release --bin cli -- verify --proof <file> --pk <pk> --msg <msg> --hx <hx>' +
+      (last.relation === 'rand' ? ' --relation rand' : ''),
+    'ok',
+  );
+};
+
+/// Let the browser render the status line before a call that blocks the main thread.
+const paint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+
+await init();
+$('seed').value = toHex(crypto.getRandomValues(new Uint8Array(32)));
+previewPk();
+$('prove').disabled = false;

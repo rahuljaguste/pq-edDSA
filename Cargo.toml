@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/ed25519", "crates/pq-eddsa"]
+members = ["crates/ed25519", "crates/pq-eddsa", "crates/pq-eddsa-wasm"]
 # Task 0 throwaway crates; they pin their own deps and carry a machine-specific
 # [patch] for the wasm32 build, so they must stay out of the workspace.
 exclude = ["spikes"]

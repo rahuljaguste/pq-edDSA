@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Suppresses the browser's automatic /favicon.ico request, so "no network
+         requests after load" is literally what DevTools shows. -->
+    <link rel="icon" href="data:," />
+    <title>PQ-EdDSA — prove an Ed25519 key in your browser</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 4rem;
+      }
+      h1 { font-size: 1.4rem; margin-bottom: .25rem; }
+      h2 { font-size: 1.05rem; margin: 2rem 0 .5rem; }
+      .sub { color: #777; margin-top: 0; }
+      .warn {
+        border: 1px solid #d08b00; background: #fff8e6; color: #4a3600;
+        padding: .8rem 1rem; border-radius: 6px; margin: 1.25rem 0;
+      }
+      @media (prefers-color-scheme: dark) {
+        .warn { background: #2a2109; color: #f0dfae; border-color: #7a5c00; }
+        .claim { background: #0e2418 !important; color: #bfe9cf !important; border-color: #2b6b47 !important; }
+        input, select { background: #1c1c1c; color: inherit; border-color: #444; }
+        pre { background: #1a1a1a !important; }
+        td, th { border-color: #333 !important; }
+      }
+      .claim {
+        border: 1px solid #2b8a5a; background: #eefaf2; color: #17462f;
+        padding: .8rem 1rem; border-radius: 6px; margin: 1.25rem 0;
+      }
+      label { display: block; margin: .9rem 0 .25rem; font-weight: 600; }
+      input, select {
+        width: 100%; box-sizing: border-box; padding: .5rem .6rem; font-family: ui-monospace, monospace;
+        font-size: .87rem; border: 1px solid #bbb; border-radius: 5px;
+      }
+      .row { display: flex; gap: .5rem; align-items: center; }
+      button {
+        padding: .55rem 1rem; font-size: .92rem; border-radius: 5px; border: 1px solid #888;
+        background: #f3f3f3; cursor: pointer; white-space: nowrap;
+      }
+      button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; font-weight: 600; }
+      button:disabled { opacity: .5; cursor: default; }
+      pre { background: #f5f5f5; padding: .7rem .8rem; border-radius: 5px; overflow-x: auto;
+            font-size: .8rem; white-space: pre-wrap; word-break: break-all; margin: .35rem 0; }
+      table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+      td, th { border-bottom: 1px solid #e2e2e2; padding: .35rem .5rem; text-align: left; }
+      td.n { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; }
+      #status { min-height: 1.4em; font-size: .9rem; color: #555; }
+      .ok { color: #17703f; font-weight: 600; }
+      .bad { color: #b3261e; font-weight: 600; }
+      footer { margin-top: 3rem; font-size: .82rem; color: #777; }
+      a { color: inherit; }
+    </style>
+  </head>
+  <body>
+    <h1>Prove you control an Ed25519 key — without revealing it</h1>
+    <p class="sub">
+      A zero-knowledge proof of the <code>R_det</code> relation from
+      <em>Post-Quantum Readiness in EdDSA Chains</em> (FC 2026), on Binius64.
+    </p>
+
+    <div class="claim">
+      <strong>Your seed never leaves this page.</strong> The proof is generated here, in
+      WebAssembly, on your machine. There is no server to send it to: this page is static
+      files, and after the module loads it makes no network requests at all — open
+      DevTools&nbsp;→&nbsp;Network and watch. That is the entire point. A proving service
+      that asks for your seed offers no privacy, whatever else it promises.
+    </div>
+
+    <div class="warn">
+      <strong>Research proof of concept. Use throwaway keys only.</strong>
+      This is unaudited software carrying <strong>96-bit</strong> classical soundness —
+      the ceiling upstream Binius64 currently exposes, and below the ~128 bits you should
+      want in production. The zero-knowledge property has not been audited either. Do not
+      paste a seed that controls anything you care about.
+    </div>
+
+    <h2>1. Your key</h2>
+    <label for="seed">Seed — 32 bytes, hex (this is the secret)</label>
+    <div class="row">
+      <input id="seed" spellcheck="false" autocomplete="off"
+             placeholder="64 hex characters" />
+      <button id="gen" type="button">Generate</button>
+    </div>
+    <label for="msg">Message — 32 bytes, hex (public)</label>
+    <input id="msg" spellcheck="false" autocomplete="off"
+           value="0000000000000000000000000000000000000000000000000000000000000000" />
+
+    <label for="relation">Relation</label>
+    <select id="relation">
+      <option value="det">det — hx = SHA-512(msg ‖ seed). Matches PQChain.</option>
+      <option value="rand">rand — hx = SHA-512(msg ‖ seed ‖ rx). What Theorem 2 proves.</option>
+    </select>
+
+    <h2>2. Prove</h2>
+    <div class="row">
+      <button id="prove" class="primary" type="button" disabled>Generate proof</button>
+      <button id="verify" type="button" disabled>Verify</button>
+      <button id="tamper" type="button" disabled>Verify against a tampered statement</button>
+      <button id="download" type="button" disabled>Download proof</button>
+    </div>
+    <p id="status">Loading the proving module…</p>
+
+    <div id="results" hidden>
+      <h2>3. The statement</h2>
+      <p class="sub" style="font-size:.85rem">
+        This is everything a verifier gets. The seed is not derivable from it.
+      </p>
+      <table>
+        <tr><th>pk</th><td><pre id="out-pk"></pre></td></tr>
+        <tr><th>msg</th><td><pre id="out-msg"></pre></td></tr>
+        <tr><th>hx</th><td><pre id="out-hx"></pre></td></tr>
+      </table>
+
+      <h2>4. Cost, measured just now</h2>
+      <table id="timings"></table>
+      <p class="sub" style="font-size:.82rem">
+        Setup is one-time and shared by every later proof in this tab. Proving is
+        single-threaded: the browser has no <code>SharedArrayBuffer</code> here, so the
+        parallel path degrades to one core, and the tab freezes while it runs.
+      </p>
+    </div>
+
+    <footer>
+      <span id="shape"></span><br />
+      Source: <a href="https://github.com/rahuljaguste/pq-edDSA">rahuljaguste/pq-edDSA</a>.
+      Built on <a href="https://github.com/binius-zk/binius64">Binius64</a>. Hash-based —
+      no trusted setup, and no assumption a quantum computer breaks.
+    </footer>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<!--
+  Task 10, Step 1: measure the real PQ-EdDSA circuit in a browser.
+
+  This page exists to answer a go/no-go question, not to look good — the demo is
+  index.html. Two quantities decide whether browser proving ships: single-threaded
+  proving time for *this* circuit, and peak wasm memory. Task 0's 497 ms was a 64-AND
+  toy and is a floor, not a prediction.
+
+  Drive it headless:
+
+    python3 -m http.server 8731        # file:// fails CORS
+    # then evaluate `await window.bench({relation:'det', runs:3})` in the page
+
+  Run 1 and runs 2+ are reported separately. Chrome's wasm code cache makes later runs
+  faster, and quoting one as the other would misrepresent what a first-time visitor sees.
+-->
+<html>
+  <head><meta charset="utf-8"><title>PQ-EdDSA browser benchmark</title></head>
+  <body>
+    <pre id="out">idle — call window.bench()</pre>
+    <script type="module">
+      import init, { PqEddsa } from './pkg/pq_eddsa_wasm.js';
+
+      const out = document.getElementById('out');
+      const ms = (t) => Math.round((performance.now() - t) * 10) / 10;
+      const mb = (bytes) => Math.round((bytes / 1048576) * 10) / 10;
+
+      window.bench = async ({ relation = 'det', runs = 3, logInvRate = 1 } = {}) => {
+        const r = { relation, runs, log_inv_rate: logInvRate, stage: 'init' };
+        try {
+          const t0 = performance.now();
+          const wasm = await init();
+          r.init_ms = ms(t0);
+          r.heap_after_init_mb = mb(wasm.memory.buffer.byteLength);
+
+          r.stage = 'setup';
+          const t1 = performance.now();
+          const session = new PqEddsa(relation, logInvRate);
+          r.setup_ms = ms(t1);
+          r.heap_after_setup_mb = mb(wasm.memory.buffer.byteLength);
+          r.and_constraints = session.and_constraints;
+          r.imul_constraints = session.imul_constraints;
+          r.private_wires = session.private_wires;
+          r.security_bits = session.security_bits;
+
+          // A fixed seed: this measures the prover, not entropy, and a fixed input
+          // makes runs comparable. The demo generates a real random seed instead.
+          const seed = new Uint8Array(32).fill(0x42);
+          const msg = new Uint8Array(32);
+
+          r.prove_ms = [];
+          r.verify_ms = [];
+          let peak = 0;
+          for (let i = 0; i < runs; i++) {
+            r.stage = `prove ${i + 1}/${runs}`;
+            out.textContent = r.stage;
+            const t2 = performance.now();
+            const proof = session.prove(seed, msg);
+            r.prove_ms.push(ms(t2));
+            r.proof_bytes = proof.size;
+            r.pk = proof.pk;
+
+            const bytes = proof.bytes;
+            const t3 = performance.now();
+            session.verify(bytes, proof.pk, proof.msg, proof.hx);
+            r.verify_ms.push(ms(t3));
+
+            peak = Math.max(peak, wasm.memory.buffer.byteLength);
+            // Yield so the tab stays responsive and the heap figure settles.
+            await new Promise((res) => setTimeout(res, 0));
+          }
+          r.peak_heap_mb = mb(peak);
+
+          // Run 1 is cold code; runs 2+ are warm. Never merge them.
+          r.prove_cold_ms = r.prove_ms[0];
+          r.verify_cold_ms = r.verify_ms[0];
+          if (runs > 1) {
+            r.prove_warm_best_ms = Math.min(...r.prove_ms.slice(1));
+            r.verify_warm_best_ms = Math.min(...r.verify_ms.slice(1));
+          }
+          r.stage = 'done';
+          r.ok = true;
+        } catch (e) {
+          r.ok = false;
+          r.error = String(e && e.message ? e.message : e);
+        }
+        out.textContent = JSON.stringify(r, null, 2);
+        return r;
+      };
+
+      // Reachable from a plain browser too, not only the headless driver.
+      if (new URLSearchParams(location.search).has('auto')) {
+        const p = new URLSearchParams(location.search);
+        window.bench({
+          relation: p.get('relation') || 'det',
+          runs: Number(p.get('runs') || 3),
+        });
+      }
+    </script>
+  </body>
+</html>

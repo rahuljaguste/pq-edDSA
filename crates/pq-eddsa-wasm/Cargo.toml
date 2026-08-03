@@ -1,0 +1,26 @@
+[package]
+name = "pq-eddsa-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Browser bindings for PQ-EdDSA proving on Binius64"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# `default-features = false` drops clap: the CLI is behind the `cli` feature so a
+# browser build does not compile an argument parser it will never call.
+pq-eddsa = { path = "../pq-eddsa", default-features = false }
+binius-frontend.workspace = true
+binius-verifier.workspace = true
+wasm-bindgen = "0.2.126"
+getrandom = "0.4"
+rand = { version = "0.10.1", default-features = false, features = ["std", "std_rng"] }
+hex.workspace = true
+
+# The ZK path needs real entropy for blinding, and `Relation::Rand` needs it for `rx`.
+# On wasm32 that means routing getrandom through the JS crypto API; without this the
+# build fails to link.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }

@@ -89,11 +89,12 @@ paper's actual use case:
   Binius64 offers no way to raise it. See [Soundness](#soundness). For a *post-quantum
   readiness* artifact this is the wrong direction to move.
 - **Browser proving.** Ligetron was designed for it — WebAssembly with WebGPU shaders, and
-  PQChain ships a working hosted demo with wallet integration. Binius64 targets CPUs, has
-  no GPU path, and its wasm32 SIMD module did not even compile until we
-  [fixed it](https://github.com/binius-zk/binius64/pull/1993). Client-side proving is
-  central to the paper's argument (the seed must never leave the user's machine), and on
-  that axis Ligetron is the more mature choice today.
+  PQChain ships a hosted demo with wallet integration. Ours runs in a browser too
+  ([below](#browser-proving)), but it costs **14.8× native** for a reason that is not going
+  away soon: WebAssembly has no carry-less multiply instruction, so GF(2^128) multiplication
+  falls back to software. Binius64 also has no GPU path. On client-side proving — which is
+  central to the paper's argument, since the seed must never leave the user's machine —
+  Ligetron is the more mature choice today.
 - **Maturity.** Ligetron is a released zkVM. Binius64's zero-knowledge path is new enough
   that its blinding parameter still carries a `TODO` upstream.
 
@@ -181,6 +182,51 @@ rather than trusting a prover-supplied blob — a proof is valid for *whatever* 
 accompanies it, so a verifier that takes the prover's word can be handed a sound proof of a
 different statement.
 
+## Browser proving
+
+The seed must never leave the user's machine — that is the paper's premise, and it only
+holds if the proof is generated where the seed already is. So it runs in the browser:
+
+```bash
+./web/build.sh                              # needs `cargo install wasm-bindgen-cli`
+(cd web && python3 -m http.server 8742)     # file:// fails CORS
+open http://localhost:8742/
+```
+
+Paste or generate a seed, click prove, watch it verify — and click *Verify against a
+tampered statement* to watch it refuse. Nothing is transmitted: the page is static files
+with no server component, and after the module loads it issues no network requests at all
+— which is checkable in DevTools, not just asserted here.
+
+Measured in Chrome 150 on the same M1 Pro, single-threaded, `R_det`, cold profile with
+caching disabled:
+
+| | browser | native | penalty |
+|---|---|---|---|
+| circuit build + prover setup (one-time) | 705 ms | — | |
+| prove | **1,684 ms** | 113.9 ms | 14.8× |
+| verify | **223 ms** | 47.5 ms | 4.7× |
+| proof size | 515 KiB | 515 KiB | identical |
+| peak wasm heap | 213 MB | — | |
+
+The browser's `pk`, `hx` and proof size match the native CLI byte for byte.
+
+**Why 15×, and why `+simd128` does not fix it.** binius64 multiplies in GF(2^128) with a
+hardware carry-less multiply on both native architectures — `vmull_p64` on aarch64,
+`_mm_clmulepi64_si128` on x86-64. WebAssembly has no such instruction, so wasm32 falls
+through to a software GHASH multiply. Enabling `+simd128` (with our upstream fix) buys
+**0.7%**, because the wasm SIMD module can only accelerate lane splitting, not the
+multiply. This is a property of the field, not of this circuit, and would apply to any
+GF(2^128) prover targeting the web today.
+
+Full methodology, the `R_rand` figures, and the SIMD comparison:
+[`docs/spikes/2026-08-03-task10-browser.md`](docs/spikes/2026-08-03-task10-browser.md).
+
+We deliberately do **not** compare this to PQChain's 5.4 s: their README does not say
+whether that figure is a browser measurement, and we have not re-run it. Comparing a
+browser number against one of unknown provenance would be the sort of ratio that flatters
+whoever picks it.
+
 ## Benchmark methodology
 
 Please read this before quoting the numbers above.
@@ -239,7 +285,7 @@ The interesting decisions, with measurements, are in
 
 ## Testing
 
-79 tests. The suite is built around negative tests, because an under-constrained circuit
+86 tests. The suite is built around negative tests, because an under-constrained circuit
 passes every positive test — it proves true statements correctly and false ones too.
 
 - Differential against `curve25519-dalek` at every window size, plus RFC 8032 vectors.
@@ -251,12 +297,20 @@ passes every positive test — it proves true statements correctly and false one
 - Circuit-shape invariance — the constraint system must not depend on the witness. PQChain
   shipped a bug of exactly this class (`fix/ed25519-scalar-mul-secret-leak`); in Binius64
   it is structurally impossible, since the graph is fixed before any witness exists.
+- The browser bindings are covered natively, not only by a browser run: `pq-eddsa-wasm`
+  holds its logic in a plain-Rust `Session` with a thin `#[wasm_bindgen]` adapter over it,
+  so round-trips, `rx` randomisation, and statement tampering are all ordinary
+  `cargo test`. The browser run then checks that the same code agrees with the native CLI
+  byte for byte.
 
 ## Upstream contribution
 
 While porting, we found that `binius-field` does not compile for `wasm32-unknown-unknown`
 with `+simd128` — a module orphaned by a refactor. Submitted as
-[binius-zk/binius64#1993](https://github.com/binius-zk/binius64/pull/1993).
+[binius-zk/binius64#1993](https://github.com/binius-zk/binius64/pull/1993), with the
+measurement showing it is worth 0.7% on this circuit, so it is offered as a correctness
+fix rather than an optimisation. The demo does not need it: omit the flag and wasm32
+builds today.
 
 ## Acknowledgements
 
