@@ -91,9 +91,17 @@
 
     <label for="relation">Relation</label>
     <select id="relation">
-      <option value="det">det — hx = SHA-512(msg ‖ seed). Matches PQChain.</option>
-      <option value="rand">rand — hx = SHA-512(msg ‖ seed ‖ rx). What Theorem 2 proves.</option>
+      <option value="rand" selected>rand — hx = SHA-512(msg ‖ seed ‖ rx). What Theorem 2 proves.</option>
+      <option value="det">det — hx = SHA-512(msg ‖ seed). Matches PQChain. Same speed.</option>
     </select>
+    <p class="sub" style="font-size:.82rem; margin-top:.4rem">
+      <code>rand</code> is the default here — it is the relation the paper's security proof
+      covers, and it costs nothing measurable. Under <code>det</code>, <code>hx</code> is an
+      unsalted commitment to your seed: anyone holding <code>msg</code> and <code>hx</code>
+      can test candidate seeds offline. That is harmless for a full-entropy seed and fatal
+      for a guessable one. The CLI defaults to <code>det</code> instead, for benchmark
+      parity with PQChain.
+    </p>
 
     <h2>2. Prove</h2>
     <div class="row">

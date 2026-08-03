@@ -41,9 +41,10 @@ R_det  = { (pk, msg, hx) | ∃ seed      : pk = clamp(SHA-512(seed)[:32])·G ∧
 R_rand = { (pk, msg, hx) | ∃ seed, rx  : pk = clamp(SHA-512(seed)[:32])·G ∧ hx = SHA-512(msg ‖ seed ‖ rx) }
 ```
 
-Both are implemented. `R_det` (Eq. 2) matches PQChain and is the default, so benchmarks
-compare like with like. `R_rand` (Eq. 1) is **the relation the paper's Theorem 2 is
-actually proved over**, and costs +5 AND constraints — see [Relations](#relations).
+Both are implemented. `R_det` (Eq. 2) matches PQChain and is the **CLI** default, so
+benchmarks compare like with like. `R_rand` (Eq. 1) is **the relation the paper's Theorem 2
+is actually proved over**; it costs +5 AND constraints and nothing measurable in time, so
+the [browser demo](#browser-proving) defaults to it instead — see [Relations](#relations).
 
 ## Results
 
@@ -152,7 +153,11 @@ from something guessable. Ruling that out is exactly what `rx` does, and why The
 stated over Eq. 1.
 
 `R_rand` costs **+5 AND constraints and no extra multiplications** — `msg ‖ seed ‖ rx` is
-96 bytes, still inside a single 128-byte SHA-512 block.
+96 bytes, still inside a single 128-byte SHA-512 block. In the browser that is below the
+noise floor: two cold browsers per relation put warm proving at 1,681–1,684 ms for `R_det`
+and 1,681–1,689 ms for `R_rand`, a gap smaller than the one between two runs of the same
+relation. **Nothing is traded for the stronger relation**, which is why the demo defaults
+to it and why `R_det` remains only for PQChain parity.
 
 ```bash
 cargo run --release --bin cli -- prove --seed <hex> --relation rand
@@ -198,16 +203,26 @@ tampered statement* to watch it refuse. Nothing is transmitted: the page is stat
 with no server component, and after the module loads it issues no network requests at all
 — which is checkable in DevTools, not just asserted here.
 
-Measured in Chrome 150 on the same M1 Pro, single-threaded, `R_det`, cold profile with
-caching disabled:
+Measured in Chrome 150 on the same M1 Pro, single-threaded, cold profile with caching
+disabled, two independent browsers per relation:
 
-| | browser | native | penalty |
+| | `R_rand` | `R_det` | native (`R_det`) |
 |---|---|---|---|
-| circuit build + prover setup (one-time) | 705 ms | — | |
-| prove | **1,684 ms** | 113.9 ms | 14.8× |
-| verify | **223 ms** | 47.5 ms | 4.7× |
-| proof size | 515 KiB | 515 KiB | identical |
-| peak wasm heap | 213 MB | — | |
+| circuit build + prover setup (one-time) | 701–707 ms | 705–707 ms | — |
+| prove | **1,681–1,689 ms** | 1,682–1,684 ms | 113.9 ms |
+| verify | **221 ms** | 222–227 ms | 47.5 ms |
+| proof size | 515 KiB | 515 KiB | 515 KiB |
+| peak wasm heap | 213 MB | 213 MB | — |
+
+**`R_rand` is quoted first here, deliberately.** The native table above uses `R_det` for
+parity with PQChain — comparing like with like. This section makes no PQChain comparison,
+so parity buys nothing, and the relation that belongs in a *deployment* story is the one
+the paper's Theorem 2 is proved over. The demo page defaults to `R_rand` for the same
+reason, while the CLI keeps `R_det` for benchmark parity.
+
+The choice costs nothing: the two relations differ by less than the spread between repeated
+runs of either one, which is what +5 AND constraints predicts. Against native `R_det`, the
+browser penalty is **14.8× on proving and 4.7× on verification**.
 
 The browser's `pk`, `hx` and proof size match the native CLI byte for byte.
 
