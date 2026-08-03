@@ -1,0 +1,50 @@
+<!doctype html>
+<!--
+  Task 0, Step 2: run a binius64 ZK proof in the browser.
+
+  The circuit is trivial (64 AND constraints). Its timing is a floor, not a
+  prediction of the real Ed25519 circuit's cost. What this establishes is only
+  that the wasm path works end to end at runtime, not just at compile time:
+  entropy is reachable, memory suffices, and the proof verifies.
+-->
+<html>
+  <head><meta charset="utf-8"><title>binius64 wasm smoke</title></head>
+  <body>
+    <pre id="out">running…</pre>
+    <script type="module">
+      import init from './wasm_smoke.js';
+
+      const result = { stage: 'init' };
+      const out = document.getElementById('out');
+
+      try {
+        const t0 = performance.now();
+        // wasm-bindgen only re-exports `#[wasm_bindgen]` functions through the glue.
+        // Ours are raw `extern "C"` exports, so reach them via the instance that
+        // init() returns rather than through named JS imports.
+        const wasm = await init();
+        result.init_ms = Math.round(performance.now() - t0);
+
+        result.stage = 'entropy';
+        result.entropy_ok = wasm.smoke_entropy() === 1;
+
+        result.stage = 'prove';
+        const t1 = performance.now();
+        const size = wasm.smoke_prove_verify();
+        result.prove_verify_ms = Math.round(performance.now() - t1);
+        result.proof_bytes = size;
+        // The Rust side returns 0 on any failure, so a nonzero size means the
+        // proof was produced AND verified in-browser.
+        result.ok = size > 0;
+        result.wasm_heap_mb = Math.round(wasm.memory.buffer.byteLength / 1048576);
+        result.stage = 'done';
+      } catch (e) {
+        result.ok = false;
+        result.error = String(e);
+      }
+
+      window.__RESULT__ = result;
+      out.textContent = JSON.stringify(result, null, 2);
+    </script>
+  </body>
+</html>
