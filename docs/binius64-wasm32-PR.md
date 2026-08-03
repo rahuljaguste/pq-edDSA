@@ -1,4 +1,8 @@
-# Proposed upstream PR to `binius-zk/binius64`
+# Upstream PR to `binius-zk/binius64`
+
+**Status: opened — https://github.com/binius-zk/binius64/pull/1993**
+Branch `fix/wasm32-simd128-orphaned-macros` in `rahuljaguste/binius64`, based on
+`upstream/main` at `e0ddeb91` (not on the fork's divergent work).
 
 **Patch:** `docs/binius64-wasm32-simd128.patch` (2 insertions, 21 deletions, one file)
 **Against:** `21f0ceeabfdd530c3c3508883caa436d8b0f15ab`
