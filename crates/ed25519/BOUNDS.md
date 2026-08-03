@@ -156,3 +156,55 @@ Consequence for the end-to-end projection: AND lands *below* the spec's estimate
 *above* it. Since `IntMul` was roughly half of `ec_msm`'s proving time, the two partly
 offset and the ~60–70 ms estimate stands, but it should be re-derived from a full-circuit
 measurement in Task 4 rather than carried forward on this basis.
+
+## Comb window size
+
+Settled by measurement in Task 4. Reproduce with:
+
+```bash
+cargo test -p ed25519-binius --release report_window_sweep -- --nocapture
+cargo test -p ed25519-binius --release report_prove_time_by_window -- --ignored --nocapture
+```
+
+Scalar multiplication only, M1 Pro, ZK path, `log_inv_rate = 1`, first run discarded:
+
+| w | windows | AND | pads to | IMUL | pads to | prove (ms) | table entries |
+|---|---|---|---|---|---|---|---|
+| 3 | 86 | 78,434 | 2^17 | 14,436 | 2^14 | — | 688 |
+| 4 | 64 | 64,512 | 2^16 | 10,740 | 2^14 | 126 | 1,024 |
+| 5 | 52 | **62,403** | 2^16 | 8,724 | 2^14 | 129 | 1,664 |
+| **6** | **43** | 68,114 | 2^17 | 7,212 | **2^13** | **118** | 2,752 |
+| 7 | 37 | 87,027 | 2^17 | **6,204** | 2^13 | 129 | 4,736 |
+
+**Chosen: `w = 6`.**
+
+### Why constraint counts pick the wrong window
+
+Ranking by AND count selects `w = 5`. That is wrong. `w = 6` carries ~9% *more* AND
+constraints and still proves ~6% faster, because:
+
+- IMUL costs far more per constraint than AND. On the `ec_msm` reference, the IntMul phase
+  was ~50% of proving time for 15,236 constraints while the BitAnd phase was ~11% for
+  110,426 — roughly a 30× per-constraint difference.
+- Both counts are padded to a power of two, so what matters is which side of a boundary
+  you land on, not the raw count. `w = 6` is the largest window whose IMUL count fits in
+  2^13.
+
+`w = 7` pushes IMUL lower still but loses: its AND count jumps to 87,027, and it gains
+nothing from the padding since it shares 2^13 with `w = 6`.
+
+### Caveat
+
+The spread between the best and worst is only ~10% (118–131 ms), which is not a wide
+margin. A machine with different SIMD width or memory behaviour could plausibly reorder
+`w = 4`, `5` and `7`; `w = 6`'s advantage is the more robust part of the result because it
+comes from a padding boundary rather than a constant factor. Re-measure before treating
+this as settled on other hardware.
+
+### Effect in the full circuit
+
+The scalar multiplication is not the whole circuit — two SHA-512 blocks and compression
+add roughly 4,000 more AND. That pushes `w = 4` and `w = 5` from 2^16 into 2^17, where
+`w = 6` already sits, so the AND-count advantage those windows held disappears while
+`w = 6` keeps its IMUL padding advantage. The choice should therefore hold or improve at
+full circuit size, but Task 6 must re-measure rather than assume it.
