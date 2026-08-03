@@ -124,3 +124,35 @@ agree with a `num-bigint` reference computed mod `p`.
 The suite was mutation-tested: disabling `canonicalize` fails 5 of the 12 tests. A suite
 that cannot fail proves nothing, so this check should be repeated whenever the module
 changes.
+
+---
+
+# Measured costs
+
+Recorded as they are established, so later projections rest on measurement rather than
+estimate. Reproduce with `cargo test -p ed25519-binius --release -- --nocapture`.
+
+| operation | AND | IMUL | source |
+|---|---|---|---|
+| `Fp::mul` / `Fp::square` | ~118 | 24 | derived from below |
+| `Point::add_niels` (7 field mults) | **827** | **168** | `point::cost::report_add_niels_cost` |
+| × 64 comb windows | 52,928 | 10,752 | |
+
+The per-addition figure is a *marginal* cost — measured as the difference between chains of
+one and two additions, so fixed setup cancels.
+
+## Against the design spec's projection
+
+The spec projected ~53,800 AND and ~7,200 IMUL for the 64 additions.
+
+- **AND: 52,928 measured vs 53,800 projected — within 2%.**
+- **IMUL: 10,752 measured vs 7,200 projected — 49% over.**
+
+The IMUL gap comes from assuming 16 IMUL per field multiplication (a 4×4 `textbook_mul`).
+The true figure is 24: the product costs 16, and the pseudo-Mersenne reduction adds a
+further 8 for `quotient × subtrahend` and the associated range machinery.
+
+Consequence for the end-to-end projection: AND lands *below* the spec's estimate and IMUL
+*above* it. Since `IntMul` was roughly half of `ec_msm`'s proving time, the two partly
+offset and the ~60–70 ms estimate stands, but it should be re-derived from a full-circuit
+measurement in Task 4 rather than carried forward on this basis.
