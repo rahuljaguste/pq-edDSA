@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = ["crates/ed25519", "crates/pq-eddsa"]
+# Task 0 throwaway crates; they pin their own deps and carry a machine-specific
+# [patch] for the wasm32 build, so they must stay out of the workspace.
+exclude = ["spikes"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/rahuljaguste/pq-edDSA"
+
+[workspace.dependencies]
+binius-core = { git = "https://github.com/binius-zk/binius64", rev = "21f0ceeabfdd530c3c3508883caa436d8b0f15ab" }
+binius-frontend = { git = "https://github.com/binius-zk/binius64", rev = "21f0ceeabfdd530c3c3508883caa436d8b0f15ab" }
+binius-circuits = { git = "https://github.com/binius-zk/binius64", rev = "21f0ceeabfdd530c3c3508883caa436d8b0f15ab" }
+binius-prover = { git = "https://github.com/binius-zk/binius64", rev = "21f0ceeabfdd530c3c3508883caa436d8b0f15ab" }
+binius-verifier = { git = "https://github.com/binius-zk/binius64", rev = "21f0ceeabfdd530c3c3508883caa436d8b0f15ab" }
+binius-hash = { git = "https://github.com/binius-zk/binius64", rev = "21f0ceeabfdd530c3c3508883caa436d8b0f15ab" }
+num-bigint = "0.5.1"
+anyhow = "1"
+hex = "0.4"
+
+[profile.release]
+lto = "thin"

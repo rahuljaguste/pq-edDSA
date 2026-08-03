@@ -1,0 +1,18 @@
+[package]
+name = "ed25519-binius"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Ed25519 circuit gadgets for Binius64"
+
+[dependencies]
+binius-core.workspace = true
+binius-frontend.workspace = true
+binius-circuits.workspace = true
+num-bigint.workspace = true
+
+[dev-dependencies]
+curve25519-dalek = "4"
+proptest = "1"
+sha2 = "0.10"
+hex.workspace = true
