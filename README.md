@@ -34,6 +34,29 @@ benchmarks compare like with like. `R_rand` (Eq. 1) is **the relation the paper'
 is actually proved over**; it costs +5 AND constraints and nothing measurable in time, so
 the [browser demo](#browser-proving) defaults to it instead. See [Relations](#relations).
 
+## Why Binius64
+
+Four properties, and the first is the one that decides the comparison.
+
+- **It computes over 64-bit machine words.** Constraints are ANDs of shifted 64-bit words
+  plus a native 64×64→128 integer multiply, so `p = 2^255 − 19` is four limbs of ordinary
+  schoolbook bignum. There is no FFT-friendly-field requirement, so there is no foreign
+  field to emulate, which is where PQChain spends ~70% of its constraints.
+- **SHA-512 lands well for the same reason.** It is defined on 64-bit words, and costs
+  **918 AND constraints per compression block** here. Both hashes in this relation are
+  single-block, so the two of them together are ~3% of the circuit and the scalar
+  multiplication is essentially the whole cost. Measured by
+  `crates/pq-eddsa/tests/sha512_cost.rs`.
+- **Hash-based and transparent.** No trusted setup and no ceremony to trust, and the
+  assumptions are hash collision and preimage resistance rather than discrete log or
+  pairings. That is the right assumption family for an artifact about post-quantum
+  readiness, though it is not sufficient on its own: the parameters upstream currently
+  exposes give 96-bit classical and roughly 48-bit quantum security, which is not
+  adequate. See [Soundness](#soundness).
+- **The constraint graph is fixed before any witness exists.** A circuit whose shape
+  depends on the secret is not expressible, which makes one real bug class structurally
+  impossible rather than merely tested for.
+
 ## Results
 
 Measured on this repository at commit time. Methodology below; please read it before
@@ -52,7 +75,7 @@ The last two rows matter. Our hardware is slower, which understates the gap; our
 soundness is lower, which overstates it. Neither is negligible and both are quantified
 below.
 
-### Why
+### Why the gap is that large
 
 PQChain reports that non-native field emulation and the public-key consistency check are
 **~70% of its 4.9M constraints**. That is not an implementation inefficiency; it is the
@@ -61,7 +84,7 @@ because the proving system needs an FFT-friendly field.
 
 Binius64 pays none of it. A native 64×64→128 integer-multiply constraint makes 255-bit
 arithmetic ordinary 4-limb schoolbook bignum, with no emulation layer underneath. SHA-512,
-being 64-bit-word-oriented, is likewise native at 1,830 AND constraints per compression
+being 64-bit-word-oriented, is likewise native at 918 AND constraints per compression
 block.
 
 The measurement therefore **confirms PQChain's own diagnosis** rather than contradicting
@@ -333,8 +356,10 @@ backwards, is in
   reference implementation this is measured against, and specifically for its
   `fix/ed25519-scalar-mul-secret-leak` commit, which named a bug class (constraint-graph
   shape depending on the secret scalar) that this repository now tests for explicitly.
-- [Irreducible](https://www.irreducible.com) and the Binius developers for
-  [Binius64](https://github.com/binius-zk/binius64).
+- [Binius](https://www.binius.xyz) and [Irreducible](https://www.irreducible.com) for
+  [Binius64](https://github.com/binius-zk/binius64), which is what makes the result here
+  possible: the whole comparison is a property of their proving system, not of this
+  circuit.
 - [curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek), used as the
   independent reference throughout the test suite.
 
