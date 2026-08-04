@@ -49,16 +49,6 @@ For the browser demo, which additionally needs
 ./web/build.sh && (cd web && python3 -m http.server 8742)
 ```
 
-## Repository layout
-
-| path | what it is |
-|---|---|
-| `crates/ed25519/` | The circuit gadgets: field arithmetic mod `2p`, points, comb scalar multiplication, compression. The design argument is in [`BOUNDS.md`](crates/ed25519/BOUNDS.md). |
-| `crates/pq-eddsa/` | The relation itself, plus the `cli` prover and verifier. |
-| `crates/pq-eddsa-wasm/` | Browser bindings. Plain-Rust `Session`, thin `#[wasm_bindgen]` adapter over it. |
-| `web/` | The demo page, the benchmark harness, and `build.sh`. |
-| `docs/` | The patch submitted upstream to Binius64. |
-
 ## What it proves
 
 ```
@@ -468,6 +458,16 @@ the flag and wasm32 builds today. The PR body carries the full diagnosis.
   circuit.
 - [curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek), used as the
   independent reference throughout the test suite.
+
+## Repository layout
+
+| path | what it is |
+|---|---|
+| `crates/ed25519/` | The circuit gadgets: field arithmetic mod `2p`, points, comb scalar multiplication, compression. The design argument is in [`BOUNDS.md`](crates/ed25519/BOUNDS.md). |
+| `crates/pq-eddsa/` | The relation itself, plus the `cli` prover and verifier. |
+| `crates/pq-eddsa-wasm/` | Browser bindings. Plain-Rust `Session`, thin `#[wasm_bindgen]` adapter over it. |
+| `web/` | The demo page, the benchmark harness, and `build.sh`. |
+| `docs/` | The patch submitted upstream to Binius64. |
 
 ## Contributing
 
