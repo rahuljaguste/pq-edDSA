@@ -74,7 +74,7 @@ Four properties, and the first is the one that decides the comparison.
   single-block, so together they are ~3% of the circuit. PQChain's own published breakdown
   puts SHA-512 at ~20% of theirs. The two constraint systems are not the same unit, so no
   ratio between the raw counts means much, but the shares are comparable: a hash defined
-  on 64-bit words is a fifth of their circuit and a rounding error in ours. Measured by
+  on 64-bit words is a fifth of their circuit and a rounding error in this one. Measured by
   `crates/pq-eddsa/tests/sha512_cost.rs`.
 - **Hash-based and transparent.** No trusted setup and no ceremony to trust, and the
   assumptions are hash collision and preimage resistance rather than discrete log or
@@ -97,18 +97,18 @@ quoting these.
 | prove | **113.9 ms** | 5,400 ms | **47× faster** |
 | verify | **47.5 ms** | 2,300 ms | **48× faster** |
 | proof size | **515 KiB** | 5.4 MB | **10.5× smaller** |
-| **peak memory** | **~280 MB** | **34 MB** | **8× more, ours is worse** |
-| host | Apple M1 Pro, 8 cores | Apple M4 Pro, 12 cores | *ours is slower silicon* |
-| **soundness** | **96-bit classical** | **~128-bit classical** | **ours is weaker** |
+| **peak memory** | **~280 MB** | **34 MB** | **8× more, this is worse** |
+| host | Apple M1 Pro, 8 cores | Apple M4 Pro, 12 cores | *this is slower silicon* |
+| **soundness** | **96-bit classical** | **~128-bit classical** | **this is weaker** |
 
-The last three rows matter. Our hardware is slower, which understates the gap; our memory
+The last three rows matter. My hardware is slower, which understates the gap; my memory
 use and soundness are both worse, which overstates it. None is negligible and all are
 quantified below.
 
 Memory is measured as whole-process peak RSS over three runs; PQChain's README gives 34 MB
 without stating how it was measured, so the two may not be counting the same thing. It is
 reported here because they publish it and a comparison that quietly drops the metric where
-we lose is not a comparison.
+I lose is not a comparison.
 
 ### Why the gap is that large
 
@@ -139,15 +139,15 @@ cheaper.
 Binius64 is not the better system on every axis, and several of the differences matter for
 the paper's actual use case:
 
-- **Memory.** They report 34 MB; we measure ~280 MB peak RSS, roughly 8× more. Binius64
+- **Memory.** They report 34 MB; I measure ~280 MB peak RSS, roughly 8× more. Binius64
   materialises a large witness and commitment structure even for a small circuit, and
   nothing here has been tuned for footprint. On a phone that gap matters more than
   proving time does.
-- **Soundness.** Ligetron carries ~128-bit classical; we carry 96-bit, and upstream
+- **Soundness.** Ligetron carries ~128-bit classical; this carries 96-bit, and upstream
   Binius64 offers no way to raise it. See [Soundness](#soundness). For a *post-quantum
   readiness* artifact this is the wrong direction to move.
 - **Browser proving.** Ligetron was designed for it: WebAssembly with WebGPU shaders, and
-  PQChain ships a hosted demo with wallet integration. Ours runs in a browser too
+  PQChain ships a hosted demo with wallet integration. This runs in a browser too
   ([below](#browser-proving)), but it costs **14.8× native** for a reason that is not going
   away soon: WebAssembly has no carry-less multiply instruction, so GF(2^128) multiplication
   falls back to software. Binius64 also has no GPU path. On client-side proving, which is
@@ -159,7 +159,7 @@ the paper's actual use case:
 ## Soundness
 
 **This PoC carries 96-bit classical soundness. PQChain carries ~128-bit. That is a real
-difference and it is not in our favour.**
+difference and it is not in my favour.**
 
 Upstream Binius64 fixes `SECURITY_BITS = 96` (`crates/verifier/src/verify.rs` in *their*
 repository, not this one) and
@@ -192,7 +192,7 @@ Binius64's ZK blinding parameter `n_dummy_constraints` is set to `2` upstream wi
 `// TODO: Document why these are necessary`. Its sibling `n_dummy_wires` *is* derived: one
 random wire per FRI query opening. This one is not.
 
-We measured that raising it is free up to 2,133 for this circuit, and recommend 2,048
+I measured that raising it is free up to 2,133 for this circuit, and recommend 2,048
 (1,024× the default) on that basis, but upstream exposes no override, so it is recorded
 rather than applied. **This does not establish that 2 is insufficient.** Zero-knowledge is a
 simulation property; a real answer needs a simulator construction. The ceiling is pinned by
@@ -294,7 +294,7 @@ The browser's `pk`, `hx` and proof size match the native CLI byte for byte.
 **Why 15×, and why `+simd128` does not fix it.** binius64 multiplies in GF(2^128) with a
 hardware carry-less multiply on both native architectures: `vmull_p64` on aarch64,
 `_mm_clmulepi64_si128` on x86-64. WebAssembly has no such instruction, so wasm32 falls
-through to a software GHASH multiply. Enabling `+simd128` (with our upstream fix) buys
+through to a software GHASH multiply. Enabling `+simd128` (with my upstream fix) buys
 **0.7%**, because the wasm SIMD module can only accelerate lane splitting, not the
 multiply. This is a property of the field, not of this circuit, and would apply to any
 GF(2^128) prover targeting the web today.
@@ -305,8 +305,8 @@ a copy of the pinned revision with
 only some of them duplicates `binius-utils` and breaks trait identity. Everything else in
 this section reproduces with `./web/build.sh` and `web/bench.html`.
 
-We deliberately do **not** compare this to PQChain's 5.4 s: their README does not say
-whether that figure is a browser measurement, and we have not re-run it. Comparing a
+I deliberately do **not** compare this to PQChain's 5.4 s: their README does not say
+whether that figure is a browser measurement, and I have not re-run it. Comparing a
 browser number against one of unknown provenance would be the sort of ratio that flatters
 whoever picks it.
 
@@ -322,18 +322,18 @@ Please read this before quoting the numbers above.
   median 48, min 46, max 49.
 - **System load at measurement: ~6 on 8 cores.** Not a quiescent machine. A quieter host
   would likely be faster, so these figures are conservative rather than flattering.
-- **PQChain's figures** are from its own README (average of 100 runs, M4 Pro 12-core). We
+- **PQChain's figures** are from its own README (average of 100 runs, M4 Pro 12-core). I
   have not re-run them, so this is not a controlled comparison: different silicon,
-  different day, their measurement not ours.
+  different day, their measurement not mine.
 - **Their README does not say which backend produced those numbers.** The binaries it
   documents are named `webgpu_prover` and `webgpu_verifier`, and it states neither that
-  GPU acceleration was used for the 5.4 s figure nor that it was not. If it was, our
-  single-threaded CPU comparison is more conservative than the table suggests. We are not
+  GPU acceleration was used for the 5.4 s figure nor that it was not. If it was, my
+  single-threaded CPU comparison is more conservative than the table suggests. I am not
   claiming that it was.
-- **Where PQChain's README and the paper disagree, we use the figure more favourable to
+- **Where PQChain's README and the paper disagree, I use the figure more favourable to
   PQChain.** The README reports 5.4 s proving; the paper reports 6.2 s. Using 6.2 s would
-  make our ratio 54× rather than 47×. The README is their current claim and the more
-  conservative choice for us, so it is the one quoted.
+  make the ratio 54× rather than 47×. The README is their current claim and the more
+  conservative choice for me, so it is the one quoted.
 - **PQChain describes itself as a work in progress** whose "APIs, circuit design, and
   implementation details may change without notice". Benchmarking against a self-declared
   WIP warrants some caution about how much weight these ratios carry.
@@ -404,10 +404,10 @@ much they matter for the paper's actual use case.
   which the last row of the [soundness table](#soundness) sizes at ~240 classical. This is
   the single most important gap and nothing in this repository can close it.
 - **A settable ZK blinding parameter.** `n_dummy_constraints` is hardcoded to 2 with a
-  `TODO` where its derivation should be. We measured that 2,048 would be free here, but
+  `TODO` where its derivation should be. I measured that 2,048 would be free here, but
   there is no way to ask for it.
 
-**Ours to do:**
+**Mine to do:**
 
 - **An on-chain verifier.** The paper's setting is a chain, and nothing here verifies a
   proof on one. At 515 KiB a proof is far too large to post directly, so this is a real
@@ -417,8 +417,8 @@ much they matter for the paper's actual use case.
   has been measured.
 - **Memory footprint.** ~280 MB peak RSS against PQChain's reported 34 MB. Nothing here
   has been tuned for it and no profiling has been done, so it is not known how much is
-  inherent to Binius64 and how much is ours. On a phone this matters more than the
-  proving time we win on.
+  inherent to Binius64 and how much is mine. On a phone this matters more than the
+  proving time I win on.
 - **An audit.** None of this has had one. See [SECURITY.md](SECURITY.md).
 
 **Investigated, and deliberately not doing:**
@@ -435,7 +435,7 @@ much they matter for the paper's actual use case.
 
 ## Upstream contribution
 
-While porting, we found that `binius-field` does not compile for `wasm32-unknown-unknown`
+While porting, I found that `binius-field` does not compile for `wasm32-unknown-unknown`
 with `+simd128`, a module orphaned by a refactor. Submitted upstream as
 **[binius-zk/binius64#1993](https://github.com/binius-zk/binius64/pull/1993)**; the change
 itself is two insertions and twenty-one deletions, kept here as

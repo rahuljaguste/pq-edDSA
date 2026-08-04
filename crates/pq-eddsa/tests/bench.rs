@@ -2,7 +2,7 @@
 //!
 //! Methodology, which the README must reproduce: the first run of a process measures
 //! ~1.6x slow from warm-up and is discarded. PQChain averages over 100 runs, so comparing
-//! a cold number against its steady-state figure would silently favour us.
+//! a cold number against its steady-state figure would silently favour these figures.
 
 use binius_core::verify::verify_constraints;
 use binius_frontend::CircuitBuilder;

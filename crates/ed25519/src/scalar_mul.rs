@@ -414,7 +414,7 @@ mod sweep {
     /// number of tables, the digit extraction, and every downstream cost figure, so it is
     /// settled here rather than deferred to the benchmark task.
     ///
-    /// The tradeoff is not the usual one. Because our tables are *constants*, there is no
+    /// The tradeoff is not the usual one. Because the tables are *constants*, there is no
     /// in-circuit table-construction cost growing with `w` — the term that caps
     /// secp256k1's variable-base MSM at `MSM_WINDOW = 4`. Here only the multiplexer grows
     /// (as `2^w`) while the additions shrink (as `1/w`), so the optimum may sit higher.

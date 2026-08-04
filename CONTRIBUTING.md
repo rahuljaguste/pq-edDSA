@@ -74,7 +74,7 @@ committed deliberately: the published benchmarks only reproduce if the whole gra
 pinned. Bumping the revision is a real change — re-run the benchmarks and update the
 figures in the same pull request.
 
-If you find a bug in Binius64 itself, upstream it. We did once already, and the README says
+If you find a bug in Binius64 itself, upstream it. I did once already, and the README says
 what came of it.
 
 ## Scope

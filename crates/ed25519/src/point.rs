@@ -212,7 +212,7 @@ mod tests {
     #[test]
     fn assert_sum_rejects_wrong_result() {
         let g = basepoint();
-        let wrong = add_affine(&g, &g); // 2G, but we claim it is G + identity
+        let wrong = add_affine(&g, &g); // 2G, but the test claims it is G + identity
         let b = CircuitBuilder::new();
         let f = Fp::new(&b);
 

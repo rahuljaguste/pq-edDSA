@@ -52,7 +52,7 @@ This is maintained by the library, not assumed of callers:
   `remainder < modulus` directly (`prime_field.rs:113`) before applying the reduction
   constraint. Output is in `[0, 2p)` by construction.
 - `mul` additionally documents "Both fe1 and fe2 may be greater or equal to modulus"
-  (`prime_field.rs:99`), so it is more permissive than we require.
+  (`prime_field.rs:99`), so it is more permissive than this needs.
 - `add` takes two values below the modulus, so the sum is below `2·(2p)` and the overflow
   past the top limb is a single carry bit. It conditionally subtracts the modulus, landing
   back in `[0, 2p)`.
@@ -368,7 +368,7 @@ full Fp::mul (with reduce): 24 IMUL
 matching the measured 7,428.
 
 **Every available lever lands in the same tier.** IMUL pads to a power of two, and at 7,428
-we sit at 91% of 2^13 = 8,192. Nothing short of dropping below 2^12 = 4,096 changes the
+this sits at 91% of 2^13 = 8,192. Nothing short of dropping below 2^12 = 4,096 changes the
 padded size:
 
 | lever | IMUL | tier |
@@ -389,7 +389,7 @@ than the 2^16→2^17 crossing it would also cause.
 - **Karatsuba at 4 limbs.** `optimal_mul` picks textbook below `KARATSUBA_LIMBS_THRESHOLD =
   8` limbs. Calling `karatsuba_mul` directly would give 12 IMUL instead of 16 — but at the
   cost of extra additions and carries in AND, for no tier change. Upstream's threshold looks
-  right even under our AND-cheap cost model.
+  right even under the AND-cheap cost model used here.
 - **Lazy reduction** (defer reduction across the formula). Does not apply here: in the HWCD
   mixed addition the three initial products feed additions that immediately feed four more
   products, so unreduced 8-limb intermediates would make those products 8×8 = 64 IMUL —

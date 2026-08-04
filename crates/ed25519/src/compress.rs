@@ -4,7 +4,7 @@
 //!
 //! Getting from `(X, Y, Z, T)` to affine needs `Z^-1`. Computing that in-circuit would
 //! mean a modular exponentiation, and in any case `PseudoMersennePrimeField::inverse`
-//! is unusable here — it assumes a prime modulus and we work modulo the composite `2p`
+//! is unusable here — it assumes a prime modulus and this crate works modulo the composite `2p`
 //! (see [`crate::field`]).
 //!
 //! Instead the affine coordinates arrive as a **hint** — computed host-side by the
@@ -362,7 +362,7 @@ mod tests {
         let b = CircuitBuilder::new();
         let f = Fp::new(&b);
 
-        // Build the point from witnesses so we can drive the hint's inputs, then
+        // Build the point from witnesses to drive the hint's inputs, then
         // deliberately assert against a non-canonical x.
         let x = BigUint::new_witness(&b, N_LIMBS);
         let p_const = f.constant(&b, &p);

@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v5
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
-      # This job exists because of a bug we hit upstream: binius64's wasm32 SIMD module
+      # This job exists because of a bug I hit upstream: binius64's wasm32 SIMD module
       # had been broken by a refactor for some time, and nothing in their CI built that
       # configuration, so nobody noticed. A target nothing builds is a target that rots.
       # Deliberately without -C target-feature=+simd128 -- that is the configuration the
