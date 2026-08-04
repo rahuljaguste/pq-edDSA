@@ -201,7 +201,7 @@ Binius64's ZK blinding parameter `n_dummy_constraints` is set to `2` upstream wi
 `// TODO: Document why these are necessary`. Its sibling `n_dummy_wires` *is* derived: one
 random wire per FRI query opening. This one is not.
 
-We measured that raising it is free up to 2,132 for this circuit, and recommend 2,048
+We measured that raising it is free up to 2,133 for this circuit, and recommend 2,048
 (1,024× the default) on that basis, but upstream exposes no override, so it is recorded
 rather than applied. **This does not establish that 2 is insufficient.** Zero-knowledge is a
 simulation property; a real answer needs a simulator construction. See
@@ -466,6 +466,12 @@ backwards, is in
   circuit.
 - [curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek), used as the
   independent reference throughout the test suite.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). The conventions worth knowing before you start are
+that negative tests must be mutation-verified, and that any figure added to a document
+needs a measurement in the repository behind it.
 
 ## Licence
 
