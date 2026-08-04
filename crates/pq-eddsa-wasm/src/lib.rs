@@ -24,8 +24,7 @@
 //! compile at the pinned revision (fix submitted upstream as binius-zk/binius64#1993),
 //! and measured **0.7%** on this circuit with the fix applied — the module aliases the
 //! portable field arithmetic and only its lane splitting uses intrinsics, and wasm has no
-//! carry-less multiply for it to reach. See
-//! `docs/notes/browser-proving.md`.
+//! carry-less multiply for it to reach.
 
 use binius_frontend::{Circuit, CircuitBuilder};
 use binius_verifier::{

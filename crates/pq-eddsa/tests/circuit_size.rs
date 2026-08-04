@@ -3,7 +3,7 @@
 //! Not a performance guard — a **correctness guard for a measured constant**.
 //!
 //! `config::RECOMMENDED_N_DUMMY_CONSTRAINTS` was chosen by measuring where raising the ZK
-//! blinding stops being free (`docs/notes/zk-blinding-parameter.md`). That cliff sits
+//! blinding stops being free. That cliff sits
 //! at 2,133 for *this* circuit, because blinding pads the outer Spartan system whose size
 //! this circuit determines. If the circuit changes materially the cliff moves, and 2,048
 //! could silently stop being free — or a much higher value could become available.
@@ -41,8 +41,7 @@ fn circuit_size_matches_the_blinding_measurement() {
          The free ceiling for n_dummy_constraints was measured at 2,133 for the current size, \
          and RECOMMENDED_N_DUMMY_CONSTRAINTS = {RECOMMENDED_N_DUMMY_CONSTRAINTS} was chosen \
          to sit inside it.\n\
-         Re-run the blinding measurement before trusting that value, then update these constants.\n\
-         See docs/notes/zk-blinding-parameter.md\n"
+         Re-run the blinding measurement before trusting that value, then update these constants.\n"
     );
 
     assert!(within(and, EXPECTED_AND), "{advice}");

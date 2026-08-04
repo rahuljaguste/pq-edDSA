@@ -34,7 +34,7 @@ pub const SECURITY_BITS: usize = 96;
 /// Recommended `n_dummy_constraints` for the ZK blinding.
 ///
 /// Upstream hardcodes 2 with `// TODO: Document why these are necessary`. Measurement
-/// (`docs/notes/zk-blinding-parameter.md`) puts the free ceiling at 2,133 for this
+/// puts the free ceiling at 2,133 for this
 /// circuit — below it, proof size is byte-identical and proving time is within noise.
 /// 2,048 is a power of two comfortably inside, and 1,024x the default.
 ///

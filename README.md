@@ -57,7 +57,6 @@ For the browser demo, which additionally needs
 | `crates/pq-eddsa/` | The relation itself, plus the `cli` prover and verifier. |
 | `crates/pq-eddsa-wasm/` | Browser bindings. Plain-Rust `Session`, thin `#[wasm_bindgen]` adapter over it. |
 | `web/` | The demo page, the benchmark harness, and `build.sh`. |
-| `docs/notes/` | Measurement records: what was measured, on what, and where a prediction turned out wrong. |
 
 ## What it proves
 
@@ -204,8 +203,9 @@ random wire per FRI query opening. This one is not.
 We measured that raising it is free up to 2,133 for this circuit, and recommend 2,048
 (1,024× the default) on that basis, but upstream exposes no override, so it is recorded
 rather than applied. **This does not establish that 2 is insufficient.** Zero-knowledge is a
-simulation property; a real answer needs a simulator construction. See
-[`docs/notes/zk-blinding-parameter.md`](docs/notes/zk-blinding-parameter.md).
+simulation property; a real answer needs a simulator construction. The ceiling is pinned by
+`crates/pq-eddsa/tests/circuit_size.rs`, which fails if the circuit changes enough to move
+it.
 
 That matters more here than in most applications, because the witness is a private key.
 
@@ -307,9 +307,6 @@ through to a software GHASH multiply. Enabling `+simd128` (with our upstream fix
 multiply. This is a property of the field, not of this circuit, and would apply to any
 GF(2^128) prover targeting the web today.
 
-Full methodology, the `R_rand` figures, and the SIMD comparison:
-[`docs/notes/browser-proving.md`](docs/notes/browser-proving.md).
-
 We deliberately do **not** compare this to PQChain's 5.4 s: their README does not say
 whether that figure is a browser measurement, and we have not re-run it. Comparing a
 browser number against one of unknown provenance would be the sort of ratio that flatters
@@ -410,8 +407,7 @@ much they matter for the paper's actual use case.
   the single most important gap and nothing in this repository can close it.
 - **A settable ZK blinding parameter.** `n_dummy_constraints` is hardcoded to 2 with a
   `TODO` where its derivation should be. We measured that 2,048 would be free here, but
-  there is no way to ask for it. See
-  [`docs/notes/zk-blinding-parameter.md`](docs/notes/zk-blinding-parameter.md).
+  there is no way to ask for it.
 
 **Ours to do:**
 
@@ -449,9 +445,7 @@ itself is two insertions and twenty-one deletions, kept here as
 
 It is offered as a correctness fix, not an optimisation, and the PR says so: with the fix
 applied, `+simd128` is worth 0.7% on this circuit. The demo does not need it at all — omit
-the flag and wasm32 builds today. The diagnosis, including a first attempt that was
-backwards, is in
-[`docs/notes/derisking-wasm32-and-blinding.md`](docs/notes/derisking-wasm32-and-blinding.md).
+the flag and wasm32 builds today. The PR body carries the full diagnosis.
 
 ## Acknowledgements
 

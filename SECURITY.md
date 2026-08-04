@@ -14,8 +14,9 @@ Two specific things you should know before trusting a proof from this code:
   `n_dummy_constraints` is set to `2` upstream with a `// TODO` where its derivation
   should be. We measured that raising it is free up to 2,133 for this circuit, which is
   not the same as establishing that 2 is insufficient or 2,048 sufficient. Zero-knowledge
-  is a simulation property and a real answer needs a simulator construction. See
-  [`docs/notes/zk-blinding-parameter.md`](docs/notes/zk-blinding-parameter.md).
+  is a simulation property and a real answer needs a simulator construction. The measured
+  ceiling is pinned by `crates/pq-eddsa/tests/circuit_size.rs`, which fails if the circuit
+  changes enough to move it.
 
 The witness here is an Ed25519 private key. If the ZK property does not hold as assumed,
 that key is what leaks. Use throwaway keys.

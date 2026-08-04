@@ -12,3 +12,6 @@ web/pkg/
 
 # macOS scatters these through the tree and they are easy to commit by accident.
 .DS_Store
+
+# Local measurement notes. Kept out of the published repository.
+notes/
