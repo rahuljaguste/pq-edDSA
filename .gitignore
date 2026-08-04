@@ -15,3 +15,14 @@ web/pkg/
 
 # Local measurement notes. Kept out of the published repository.
 notes/
+
+# Seed material. The Usage example in the README tells you to put a seed in seed.hex, so
+# the obvious next accident is committing one. Zero-knowledge protects the seed from the
+# verifier; it does nothing about `git add -A`.
+seed.hex
+seed*.hex
+*.seed
+
+# Proofs, which the CLI and the demo's download button both produce here.
+proof.bin
+*.proof
