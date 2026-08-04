@@ -9,26 +9,14 @@ FC 2026) on [Binius64](https://github.com/binius-zk/binius64), for comparison wi
 paper's reference implementation [SoundnessLabs/PQChain](https://github.com/SoundnessLabs/PQChain),
 which uses the Ligetron zkVM.
 
-**This is a proving-system experiment, not a competing implementation.** PQChain's authors
-identified their own bottleneck and asked for exactly this:
+It builds on PQChain's work. They identified the bottleneck as a field requirement of the
+proving system rather than anything about their circuit: Ligetron needs an FFT-friendly
+field, and `p = 2^255 − 19` is not one. Binius64 has no such requirement, computing natively
+over 64-bit machine words instead of emulating a foreign field.
 
-> *"Ed25519 operates over a prime field (2^255 − 19) that lacks sufficient roots of unity
-> for efficient FFT operations. Ligetron requires FFT-friendly fields with smooth-order
-> multiplicative subgroups (specifically BN254)."*
->
-> *"We are actively exploring additional proving systems optimized for more compact proof
-> sizes, efficient on-chain verification, and customized circuit architectures."*
->
-> — [PQChain README](https://github.com/SoundnessLabs/PQChain)
-
-They attribute the cost to a **field requirement of the proving system**, not to their
-circuit. Binius64 is built around not having that requirement: it computes natively over
-64-bit machine words rather than emulating a foreign field, which is precisely the
-constraint they name.
-
-So the question this repository answers is theirs: *what does a proving system without the
-FFT-friendly-field requirement give you on this relation?* The numbers below measure that.
-They are a property of the two proving systems, not of the two implementations.
+So the question here is theirs: what does a proving system without that requirement give you
+on this relation? The numbers below measure it, and they are a property of the two proving
+systems rather than of the two implementations.
 
 > **Research artifact.** Not audited, not production-ready. The zero-knowledge claim in
 > particular is unaudited; see [Soundness](#soundness). Do not use this to secure real
@@ -64,17 +52,17 @@ The last two rows matter. Our hardware is slower, which understates the gap; our
 soundness is lower, which overstates it. Neither is negligible and both are quantified
 below.
 
-### Why, and why it is the reason PQChain gave
+### Why
 
 PQChain reports that non-native field emulation and the public-key consistency check are
 **~70% of its 4.9M constraints**. That is not an implementation inefficiency; it is the
 price of representing `F_p` for `p = 2^255 − 19` inside BN254, in three 85-bit limbs,
 because the proving system needs an FFT-friendly field.
 
-Binius64 has no such requirement. It computes over 64-bit words with a native 64×64→128
-integer-multiply constraint, so 255-bit arithmetic is ordinary 4-limb schoolbook bignum, with
-no emulation layer to pay for. SHA-512, being 64-bit-word-oriented, is likewise native at
-1,830 AND constraints per compression block.
+Binius64 pays none of it. A native 64×64→128 integer-multiply constraint makes 255-bit
+arithmetic ordinary 4-limb schoolbook bignum, with no emulation layer underneath. SHA-512,
+being 64-bit-word-oriented, is likewise native at 1,830 AND constraints per compression
+block.
 
 The measurement therefore **confirms PQChain's own diagnosis** rather than contradicting
 it. Remove the emulation requirement and roughly 70% of the constraints go with it; the
