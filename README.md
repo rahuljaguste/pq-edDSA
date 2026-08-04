@@ -44,8 +44,10 @@ Four properties, and the first is the one that decides the comparison.
   field to emulate, which is where PQChain spends ~70% of its constraints.
 - **SHA-512 lands well for the same reason.** It is defined on 64-bit words, and costs
   **918 AND constraints per compression block** here. Both hashes in this relation are
-  single-block, so the two of them together are ~3% of the circuit and the scalar
-  multiplication is essentially the whole cost. Measured by
+  single-block, so together they are ~3% of the circuit. PQChain's own published breakdown
+  puts SHA-512 at ~20% of theirs. The two constraint systems are not the same unit, so no
+  ratio between the raw counts means much, but the shares are comparable: a hash defined
+  on 64-bit words is a fifth of their circuit and a rounding error in ours. Measured by
   `crates/pq-eddsa/tests/sha512_cost.rs`.
 - **Hash-based and transparent.** No trusted setup and no ceremony to trust, and the
   assumptions are hash collision and preimage resistance rather than discrete log or
@@ -68,19 +70,32 @@ quoting these.
 | prove | **113.9 ms** | 5,400 ms | **47× faster** |
 | verify | **47.5 ms** | 2,300 ms | **48× faster** |
 | proof size | **515 KiB** | 5.4 MB | **10.5× smaller** |
+| **peak memory** | **~280 MB** | **34 MB** | **8× more, ours is worse** |
 | host | Apple M1 Pro, 8 cores | Apple M4 Pro, 12 cores | *ours is slower silicon* |
 | **soundness** | **96-bit classical** | **~128-bit classical** | **ours is weaker** |
 
-The last two rows matter. Our hardware is slower, which understates the gap; our
-soundness is lower, which overstates it. Neither is negligible and both are quantified
-below.
+The last three rows matter. Our hardware is slower, which understates the gap; our memory
+use and soundness are both worse, which overstates it. None is negligible and all are
+quantified below.
+
+Memory is measured as whole-process peak RSS over three runs; PQChain's README gives 34 MB
+without stating how it was measured, so the two may not be counting the same thing. It is
+reported here because they publish it and a comparison that quietly drops the metric where
+we lose is not a comparison.
 
 ### Why the gap is that large
 
-PQChain reports that non-native field emulation and the public-key consistency check are
-**~70% of its 4.9M constraints**. That is not an implementation inefficiency; it is the
-price of representing `F_p` for `p = 2^255 − 19` inside BN254, in three 85-bit limbs,
-because the proving system needs an FFT-friendly field.
+PQChain publishes the breakdown itself:
+
+| their category | constraints | share |
+|---|---|---|
+| non-native field emulation & scalar multiplication | ~3.4M | ~70% |
+| SHA-512 operations | ~1.0M | ~20% |
+| other (comparisons, assertions) | ~0.5M | ~10% |
+
+That top row is not an implementation inefficiency; it is the price of representing `F_p`
+for `p = 2^255 − 19` inside BN254, in three 85-bit limbs, because the proving system needs
+an FFT-friendly field.
 
 Binius64 pays none of it. A native 64×64→128 integer-multiply constraint makes 255-bit
 arithmetic ordinary 4-limb schoolbook bignum, with no emulation layer underneath. SHA-512,
@@ -94,9 +109,13 @@ cheaper.
 
 ### Where Ligetron is ahead
 
-Binius64 is not the better system on every axis, and two of the differences matter for the
-paper's actual use case:
+Binius64 is not the better system on every axis, and several of the differences matter for
+the paper's actual use case:
 
+- **Memory.** They report 34 MB; we measure ~280 MB peak RSS, roughly 8× more. Binius64
+  materialises a large witness and commitment structure even for a small circuit, and
+  nothing here has been tuned for footprint. On a phone that gap matters more than
+  proving time does.
 - **Soundness.** Ligetron carries ~128-bit classical; we carry 96-bit, and upstream
   Binius64 offers no way to raise it. See [Soundness](#soundness). For a *post-quantum
   readiness* artifact this is the wrong direction to move.
@@ -274,6 +293,11 @@ Please read this before quoting the numbers above.
 - **PQChain's figures** are from its own README (average of 100 runs, M4 Pro 12-core). We
   have not re-run them, so this is not a controlled comparison: different silicon,
   different day, their measurement not ours.
+- **Their README does not say which backend produced those numbers.** The binaries it
+  documents are named `webgpu_prover` and `webgpu_verifier`, and it states neither that
+  GPU acceleration was used for the 5.4 s figure nor that it was not. If it was, our
+  single-threaded CPU comparison is more conservative than the table suggests. We are not
+  claiming that it was.
 - **Where PQChain's README and the paper disagree, we use the figure more favourable to
   PQChain.** The README reports 5.4 s proving; the paper reports 6.2 s. Using 6.2 s would
   make our ratio 54× rather than 47×. The README is their current claim and the more
@@ -360,6 +384,10 @@ much they matter for the paper's actual use case.
 - **Browser UX.** Proving blocks the main thread for ~1.7 s. A Web Worker would fix the
   freeze without making anything faster. Firefox and Safari are untested; only Chrome 150
   has been measured.
+- **Memory footprint.** ~280 MB peak RSS against PQChain's reported 34 MB. Nothing here
+  has been tuned for it and no profiling has been done, so it is not known how much is
+  inherent to Binius64 and how much is ours. On a phone this matters more than the
+  proving time we win on.
 - **An audit.** None of this has had one. See [SECURITY.md](SECURITY.md).
 
 **Investigated, and deliberately not doing:**
