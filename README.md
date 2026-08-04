@@ -1,5 +1,7 @@
 # PQ-EdDSA on Binius64
 
+[![CI](https://github.com/rahuljaguste/pq-edDSA/actions/workflows/ci.yml/badge.svg)](https://github.com/rahuljaguste/pq-edDSA/actions/workflows/ci.yml)
+
 Prove ownership of an Ed25519 key from its seed, in zero knowledge, without revealing the
 seed or changing the on-chain address.
 
@@ -21,6 +23,41 @@ systems rather than of the two implementations.
 > **Research artifact.** Not audited, not production-ready. The zero-knowledge claim in
 > particular is unaudited; see [Soundness](#soundness). Do not use this to secure real
 > assets.
+
+## Quick start
+
+Rust is pinned by `rust-toolchain.toml`, so rustup installs the right version and the
+`wasm32-unknown-unknown` target on its own. Nothing else is needed for the CLI.
+
+```bash
+git clone https://github.com/rahuljaguste/pq-edDSA && cd pq-edDSA
+
+# Prove that you know the seed behind a public key, revealing nothing about it.
+# This is RFC 8032 test vector 1, so the seed is public and safe to paste.
+cargo run --release --bin cli -- prove \
+  --seed 9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60 \
+  --out proof.bin
+```
+
+The first build compiles Binius64 from a pinned git revision, twenty-odd crates, so expect
+a few minutes; later builds are seconds. Full command reference under [Usage](#usage).
+
+For the browser demo, which additionally needs
+`cargo install wasm-bindgen-cli --version 0.2.126`:
+
+```bash
+./web/build.sh && (cd web && python3 -m http.server 8742)
+```
+
+## Repository layout
+
+| path | what it is |
+|---|---|
+| `crates/ed25519/` | The circuit gadgets: field arithmetic mod `2p`, points, comb scalar multiplication, compression. The design argument is in [`BOUNDS.md`](crates/ed25519/BOUNDS.md). |
+| `crates/pq-eddsa/` | The relation itself, plus the `cli` prover and verifier. |
+| `crates/pq-eddsa-wasm/` | Browser bindings. Plain-Rust `Session`, thin `#[wasm_bindgen]` adapter over it. |
+| `web/` | The demo page, the benchmark harness, and `build.sh`. |
+| `docs/notes/` | Measurement records: what was measured, on what, and where a prediction turned out wrong. |
 
 ## What it proves
 
