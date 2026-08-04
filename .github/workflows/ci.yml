@@ -1,9 +1,16 @@
 name: CI
 
 on:
+  # main only. Feature branches do not burn CI minutes; open a pull request when ready.
   push:
     branches: [main]
+  # Pull requests targeting main only, and every run from an external contributor waits
+  # for a maintainer to approve it. See the repository's Actions settings: "Require
+  # approval for all external contributors".
   pull_request:
+    branches: [main]
+  # So a maintainer can run it on demand without pushing.
+  workflow_dispatch:
   # binius64 is pinned to a git revision, so nothing here drifts on its own. This catches
   # the other direction: a GitHub Actions image or rustup change breaking the build while
   # nobody is looking at it.
@@ -20,7 +27,7 @@ jobs:
     name: test (release)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # rust-toolchain.toml pins the channel, targets and components; rustup honours it.
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
@@ -31,7 +38,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
@@ -41,7 +48,7 @@ jobs:
     name: wasm32 build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
       # This job exists because of a bug we hit upstream: binius64's wasm32 SIMD module
