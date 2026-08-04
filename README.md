@@ -57,6 +57,7 @@ For the browser demo, which additionally needs
 | `crates/pq-eddsa/` | The relation itself, plus the `cli` prover and verifier. |
 | `crates/pq-eddsa-wasm/` | Browser bindings. Plain-Rust `Session`, thin `#[wasm_bindgen]` adapter over it. |
 | `web/` | The demo page, the benchmark harness, and `build.sh`. |
+| `docs/` | The patch submitted upstream to Binius64. |
 
 ## What it proves
 
@@ -170,7 +171,8 @@ the paper's actual use case:
 **This PoC carries 96-bit classical soundness. PQChain carries ~128-bit. That is a real
 difference and it is not in our favour.**
 
-Upstream Binius64 fixes `SECURITY_BITS = 96` (`crates/verifier/src/verify.rs`) and
+Upstream Binius64 fixes `SECURITY_BITS = 96` (`crates/verifier/src/verify.rs` in *their*
+repository, not this one) and
 `ZKVerifier::setup` accepts no override, so 96 is the only setting available. Reaching even
 112 would require patching upstream, and the narrow field caps there regardless: the
 logUp\* term contributes a fixed `2^16/|F| = 2^-112` that no query budget affects.
@@ -306,6 +308,12 @@ through to a software GHASH multiply. Enabling `+simd128` (with our upstream fix
 **0.7%**, because the wasm SIMD module can only accelerate lane splitting, not the
 multiply. This is a property of the field, not of this circuit, and would apply to any
 GF(2^128) prover targeting the web today.
+
+Reproducing that last figure needs a `[patch]` section pointing *every* `binius-*` crate at
+a copy of the pinned revision with
+[`docs/binius64-wasm32-simd128.patch`](docs/binius64-wasm32-simd128.patch) applied; patching
+only some of them duplicates `binius-utils` and breaks trait identity. Everything else in
+this section reproduces with `./web/build.sh` and `web/bench.html`.
 
 We deliberately do **not** compare this to PQChain's 5.4 s: their README does not say
 whether that figure is a browser measurement, and we have not re-run it. Comparing a

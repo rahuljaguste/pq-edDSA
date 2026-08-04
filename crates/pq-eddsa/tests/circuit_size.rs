@@ -57,8 +57,12 @@ fn circuit_size_matches_the_blinding_measurement() {
 fn recommended_blinding_is_inside_the_measured_cliff() {
     /// Measured in the blinding work: 2,133 is free, 2,134 is not.
     ///
-    /// Notably insensitive to circuit size — an 18% reduction in AND constraints and 15%
-    /// in private wires moved this by exactly one. See the spike write-up.
+    /// Notably insensitive to circuit size: an 18% reduction in AND constraints and 15%
+    /// in private wires moved this by exactly one. The cliff is set by the outer Spartan
+    /// system crossing a padding boundary, and that system's size is dominated by the
+    /// protocol's own shape — round count, query budget — rather than by the width of the
+    /// circuit being verified. It would move materially if `log_inv_rate` or the security
+    /// level changed.
     const MEASURED_CLIFF: usize = 2_133;
     // A compile-time check: raising the constant past the measured cliff should fail the
     // build, not wait for someone to run the tests.
