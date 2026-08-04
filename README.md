@@ -447,7 +447,11 @@ the flag and wasm32 builds today. The PR body carries the full diagnosis.
 
 ## Acknowledgements
 
-- [Baldimtsi, Chalkias, Roy, Sedaghat](https://eprint.iacr.org/2025/1368.pdf) for the paper.
+- Foteini Baldimtsi, Kostas Kryptos Chalkias, Arnab Roy and Mahdi Sedaghat for
+  *[Post-Quantum Readiness in EdDSA Chains](https://eprint.iacr.org/2025/1368.pdf)*
+  (FC 2026; full version at ePrint 2025/1368), which this implements. The construction and
+  its security argument are entirely theirs; this repository is an implementation of their
+  relation on a different proving system.
 - [SoundnessLabs/PQChain](https://github.com/SoundnessLabs/PQChain) (Apache-2.0) for the
   reference implementation this is measured against, and specifically for its
   `fix/ed25519-scalar-mul-secret-leak` commit, which named a bug class (constraint-graph
