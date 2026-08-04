@@ -335,6 +335,45 @@ passes every positive test: it proves true statements correctly and false ones t
   `cargo test`. The browser run then checks that the same code agrees with the native CLI
   byte for byte.
 
+## What is missing
+
+This is a proof of concept, and the gaps are as interesting as the results. Ordered by how
+much they matter for the paper's actual use case.
+
+**Blocked on upstream Binius64:**
+
+- **Soundness above 96 bits.** `SECURITY_BITS` is fixed and `ZKVerifier::setup` takes no
+  override, and the narrow field caps the achievable level at 112 regardless. Getting to a
+  level worth calling post-quantum needs a wider challenge field, GF(2^256) with SHA-512,
+  which the last row of the [soundness table](#soundness) sizes at ~240 classical. This is
+  the single most important gap and nothing in this repository can close it.
+- **A settable ZK blinding parameter.** `n_dummy_constraints` is hardcoded to 2 with a
+  `TODO` where its derivation should be. We measured that 2,048 would be free here, but
+  there is no way to ask for it. See
+  [`docs/notes/zk-blinding-parameter.md`](docs/notes/zk-blinding-parameter.md).
+
+**Ours to do:**
+
+- **An on-chain verifier.** The paper's setting is a chain, and nothing here verifies a
+  proof on one. At 515 KiB a proof is far too large to post directly, so this is a real
+  design problem rather than a matter of writing a contract.
+- **Browser UX.** Proving blocks the main thread for ~1.7 s. A Web Worker would fix the
+  freeze without making anything faster. Firefox and Safari are untested; only Chrome 150
+  has been measured.
+- **An audit.** None of this has had one. See [SECURITY.md](SECURITY.md).
+
+**Investigated, and deliberately not doing:**
+
+- **Multi-core browser proving.** `SharedArrayBuffer` with COOP/COEP headers is real work,
+  and it would buy approximately nothing: rayon measures within noise on a circuit this
+  small even natively, because the prover is latency-bound rather than throughput-bound at
+  57K AND constraints. Measured in [`crates/ed25519/BOUNDS.md`](crates/ed25519/BOUNDS.md).
+- **`+simd128` for the browser build.** Worth 0.7%, measured, and it needs a fix that is
+  still open upstream. WebAssembly has no carry-less multiply for the module to reach.
+- **Squeezing IMUL further.** Every available lever lands in the same 2^13 padding tier,
+  so there is nothing there to win. The table is in
+  [BOUNDS.md](crates/ed25519/BOUNDS.md).
+
 ## Upstream contribution
 
 While porting, we found that `binius-field` does not compile for `wasm32-unknown-unknown`
