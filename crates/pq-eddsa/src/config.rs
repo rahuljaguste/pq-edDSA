@@ -16,7 +16,7 @@
 //! | build | query target | achieved | bound by |
 //! |---|---|---|---|
 //! | narrow (default) | 96, adjustable | up to ~112 | logUp\* at `2^16/|F|` |
-//! | `--features wide` | 256 | ~240 classical, ~120 quantum | logUp\* again |
+//! | `--features wide` | 240 | ~240 classical, ~120 quantum | logUp\* again |
 //!
 //! Raising the target past what the field can deliver is accepted silently and costs real
 //! proof size for nothing. Every published benchmark must state its level alongside its
@@ -28,12 +28,6 @@ use binius_core::constraint_system::ConstraintSystem;
 use binius_prover::zk_config::ZKProver;
 use binius_verifier::zk_config::ZKVerifier;
 
-/// The Merkle and Fiat-Shamir hash suite.
-///
-/// SHA-256 rather than Blake3: measured ~8% faster on Apple silicon, which has SHA-256
-/// instructions that `binius-hash`'s `sha256_x4` exploits. Proof size and soundness are
-/// identical either way. See `crates/ed25519/BOUNDS.md` — the conclusion is
-/// hardware-specific and worth re-measuring on x86-64 without SHA-NI.
 /// The proving configuration: challenge field, packed representation, hash suite and
 /// Fiat-Shamir challenger. All four move together, so they are declared together.
 ///
@@ -43,6 +37,10 @@ use binius_verifier::zk_config::ZKVerifier;
 mod cfg {
     pub type Field = binius_field::BinaryField128bGhash;
     pub type Packed = binius_prover::OptimalPackedB128;
+    /// SHA-256 rather than Blake3: measured ~8% faster on Apple silicon, which has
+    /// SHA-256 instructions that `binius-hash`'s `sha256_x4` exploits. Proof size and
+    /// soundness are identical either way. See `crates/ed25519/BOUNDS.md`; the conclusion
+    /// is hardware-specific and worth re-measuring on x86-64 without SHA-NI.
     pub type Suite = binius_hash::sha256::Sha256HashSuite;
     pub type Challenger = binius_verifier::config::StdChallenger;
     /// The query target this configuration can actually reach. Past it, logUp\* binds.
@@ -55,9 +53,26 @@ mod cfg {
     pub type Packed = binius_field::PackedGhashSq1x256b;
     pub type Suite = binius_hash::Sha512HashSuite;
     pub type Challenger = binius_verifier::config::WideChallenger;
-    pub const DEFAULT_SECURITY_BITS: usize = binius_verifier::SECURITY_BITS_WIDE;
+
+    /// 240, not the fork's `SECURITY_BITS_WIDE = 256`.
+    ///
+    /// logUp\* contributes a fixed `2^16/|F|` and binds at `2^-240`, so a target above 240
+    /// delivers no more soundness and is charged for in full. Measured on `R_det`: 240
+    /// yields a 2,505,280-byte proof and 256 yields 2,626,880, both achieving ~240 bits.
+    /// The difference is 121,600 bytes for nothing.
+    ///
+    /// Proving time is flat across the whole range (499–541 ms from a target of 96 to
+    /// 320), so the query budget buys bytes rather than cycles and there is no reason to
+    /// leave the extra ones on.
+    pub const DEFAULT_SECURITY_BITS: usize = 240;
+
+    /// What the fork defaults to. Kept so the gap is documented rather than silently
+    /// diverged from.
+    pub const FORK_DEFAULT_SECURITY_BITS: usize = binius_verifier::SECURITY_BITS_WIDE;
 }
 
+#[cfg(feature = "wide")]
+pub use cfg::FORK_DEFAULT_SECURITY_BITS;
 pub use cfg::{Challenger, DEFAULT_SECURITY_BITS, Field, Packed, Suite};
 
 pub type Verifier = ZKVerifier<Field, Suite>;
@@ -93,8 +108,8 @@ pub struct ProofConfig {
     ///
     /// SPIKE BRANCH ONLY. Upstream hardcodes 96 and exposes no override; this is available
     /// because the branch patches in a fork carrying `setup_with_security_bits`. On the
-    /// narrow field the useful ceiling is 112: past that the logUp\* term at `2^16/|F|`
-    /// binds instead, and a larger query budget buys nothing.
+    /// useful ceiling is 112 on the narrow field and ~240 on the wide one: past that the
+    /// logUp\* term at `2^16/|F|` binds instead, and a larger query budget buys nothing.
     pub security_bits: usize,
 }
 
