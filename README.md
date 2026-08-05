@@ -373,7 +373,7 @@ The interesting decisions, with measurements, are in
 
 ## Testing
 
-92 tests. The suite is built around negative tests, because an under-constrained circuit
+95 tests. The suite is built around negative tests, because an under-constrained circuit
 passes every positive test: it proves true statements correctly and false ones too.
 
 - Differential against `curve25519-dalek` at every window size, plus RFC 8032 vectors.
