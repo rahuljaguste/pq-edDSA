@@ -35,6 +35,9 @@ default = ["cli"]
 # The command-line binary. Optional so `pq-eddsa-wasm` can depend on the library
 # without pulling clap into a browser build.
 cli = ["dep:clap"]
+# SPIKE BRANCH ONLY: the fork's GF(2^256) challenge field with SHA-512 commitments.
+# Selects a different field, packed type, hash suite and Fiat-Shamir challenger together.
+wide = []
 # Multi-threaded proving. Off by default so benchmarks are comparable across
 # machines; enable with --features rayon.
 rayon = ["binius-prover/rayon"]

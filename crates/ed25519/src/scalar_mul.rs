@@ -483,7 +483,11 @@ mod prove_sweep {
         cs.populate_wire_witness(&mut wf).unwrap();
         let witness = wf.into_value_vec();
 
-        let verifier = ZKVerifier::<binius_field::BinaryField128bGhash, Suite>::setup(cs.constraint_system().clone(), 1).unwrap();
+        let verifier = ZKVerifier::<binius_field::BinaryField128bGhash, Suite>::setup(
+            cs.constraint_system().clone(),
+            1,
+        )
+        .unwrap();
         let prover = ZKProver::<OptimalPackedB128, Suite>::setup(&verifier).unwrap();
 
         let mut seed = [0u8; 32];

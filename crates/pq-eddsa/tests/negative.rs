@@ -14,7 +14,6 @@ use binius_frontend::CircuitBuilder;
 use binius_hash::sha256::Sha256HashSuite;
 use binius_prover::{OptimalPackedB128, zk_config::ZKProver};
 use binius_verifier::{
-    config::StdChallenger,
     transcript::{ProverTranscript, VerifierTranscript},
     zk_config::ZKVerifier,
 };
@@ -144,19 +143,20 @@ fn proof_for_one_statement_does_not_verify_against_another() {
     cs.populate_wire_witness(&mut w).unwrap();
     let witness = w.into_value_vec();
 
-    let verifier = ZKVerifier::<binius_field::BinaryField128bGhash, Suite>::setup(cs.constraint_system().clone(), 1).unwrap();
-    let prover = ZKProver::<OptimalPackedB128, Suite>::setup(&verifier).unwrap();
+    let verifier = pq_eddsa::config::Verifier::setup(cs.constraint_system().clone(), 1).unwrap();
+    let prover = pq_eddsa::config::Prover::setup(&verifier).unwrap();
 
     let mut rng_seed = [0u8; 32];
     getrandom::fill(&mut rng_seed).unwrap();
-    let mut tr = ProverTranscript::new(StdChallenger::default());
+    let mut tr = ProverTranscript::new(pq_eddsa::config::Challenger::default());
     let mut rng = <rand::rngs::StdRng as rand::SeedableRng>::from_seed(rng_seed);
     prover.prove(&witness, &mut rng, &mut tr).unwrap();
     let proof = tr.finalize();
 
     let check = |pi: &PublicInputs| {
         let public = public_words(&cs, &circuit, pi);
-        let mut vt = VerifierTranscript::new(StdChallenger::default(), proof.clone());
+        let mut vt =
+            VerifierTranscript::new(pq_eddsa::config::Challenger::default(), proof.clone());
         verifier.verify(&public, &mut vt).is_ok() && vt.finalize().is_ok()
     };
 

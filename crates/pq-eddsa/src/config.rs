@@ -13,9 +13,7 @@
 
 use anyhow::{Result, anyhow};
 use binius_core::constraint_system::ConstraintSystem;
-use binius_field::BinaryField128bGhash as B128;
-use binius_hash::sha256::Sha256HashSuite;
-use binius_prover::{OptimalPackedB128, zk_config::ZKProver};
+use binius_prover::zk_config::ZKProver;
 use binius_verifier::zk_config::ZKVerifier;
 
 /// The Merkle and Fiat-Shamir hash suite.
@@ -24,13 +22,34 @@ use binius_verifier::zk_config::ZKVerifier;
 /// instructions that `binius-hash`'s `sha256_x4` exploits. Proof size and soundness are
 /// identical either way. See `crates/ed25519/BOUNDS.md` — the conclusion is
 /// hardware-specific and worth re-measuring on x86-64 without SHA-NI.
-pub type Suite = Sha256HashSuite;
+/// The proving configuration: challenge field, packed representation, hash suite and
+/// Fiat-Shamir challenger. All four move together, so they are declared together.
+///
+/// SPIKE BRANCH ONLY. `--features wide` selects the fork's `GF(2^256)` / SHA-512 path.
+/// Upstream has only the narrow one.
+#[cfg(not(feature = "wide"))]
+mod cfg {
+    pub type Field = binius_field::BinaryField128bGhash;
+    pub type Packed = binius_prover::OptimalPackedB128;
+    pub type Suite = binius_hash::sha256::Sha256HashSuite;
+    pub type Challenger = binius_verifier::config::StdChallenger;
+    /// The query target this configuration can actually reach. Past it, logUp\* binds.
+    pub const DEFAULT_SECURITY_BITS: usize = binius_verifier::SECURITY_BITS;
+}
 
-/// The challenge field. `B128` is GF(2^128); the fork's wide path uses `GhashSq256b`.
-pub type Field = B128;
+#[cfg(feature = "wide")]
+mod cfg {
+    pub type Field = binius_field::GhashSq256b;
+    pub type Packed = binius_field::PackedGhashSq1x256b;
+    pub type Suite = binius_hash::Sha512HashSuite;
+    pub type Challenger = binius_verifier::config::WideChallenger;
+    pub const DEFAULT_SECURITY_BITS: usize = binius_verifier::SECURITY_BITS_WIDE;
+}
+
+pub use cfg::{Challenger, DEFAULT_SECURITY_BITS, Field, Packed, Suite};
 
 pub type Verifier = ZKVerifier<Field, Suite>;
-pub type Prover = ZKProver<OptimalPackedB128, Suite>;
+pub type Prover = ZKProver<Packed, Suite>;
 
 /// Classical soundness in bits. Fixed by upstream; not currently configurable.
 pub const SECURITY_BITS: usize = 96;
@@ -65,7 +84,10 @@ pub struct ProofConfig {
 
 impl Default for ProofConfig {
     fn default() -> Self {
-        Self { log_inv_rate: 1, security_bits: SECURITY_BITS }
+        Self {
+            log_inv_rate: 1,
+            security_bits: DEFAULT_SECURITY_BITS,
+        }
     }
 }
 

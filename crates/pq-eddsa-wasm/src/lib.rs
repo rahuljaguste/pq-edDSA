@@ -27,13 +27,10 @@
 //! carry-less multiply for it to reach.
 
 use binius_frontend::{Circuit, CircuitBuilder};
-use binius_verifier::{
-    config::StdChallenger,
-    transcript::{ProverTranscript, VerifierTranscript},
-};
+use binius_verifier::transcript::{ProverTranscript, VerifierTranscript};
 use pq_eddsa::{
     circuit::{PqEddsaCircuit, PublicInputs, Relation, public_words},
-    config::{ProofConfig, Prover, SECURITY_BITS, Verifier},
+    config::{Challenger, ProofConfig, Prover, SECURITY_BITS, Verifier},
 };
 use wasm_bindgen::prelude::*;
 
@@ -69,9 +66,12 @@ impl Session {
         let b = CircuitBuilder::new();
         let circuit = PqEddsaCircuit::build_with(&b, relation);
         let cs = b.build();
-        let (verifier, prover) = ProofConfig { log_inv_rate, ..Default::default() }
-            .setup(cs.constraint_system().clone())
-            .map_err(|e| e.to_string())?;
+        let (verifier, prover) = ProofConfig {
+            log_inv_rate,
+            ..Default::default()
+        }
+        .setup(cs.constraint_system().clone())
+        .map_err(|e| e.to_string())?;
         Ok(Self {
             relation,
             circuit,
@@ -115,7 +115,7 @@ impl Session {
         let mut rng_seed = [0u8; 32];
         getrandom::fill(&mut rng_seed).map_err(|e| format!("entropy unavailable: {e}"))?;
         let mut rng = <rand::rngs::StdRng as rand::SeedableRng>::from_seed(rng_seed);
-        let mut tr = ProverTranscript::new(StdChallenger::default());
+        let mut tr = ProverTranscript::new(Challenger::default());
         self.prover
             .prove(&witness, &mut rng, &mut tr)
             .map_err(|e| format!("prove failed: {e:?}"))?;
@@ -133,7 +133,7 @@ impl Session {
     /// different statement and accept it believing it checked its own.
     pub fn verify(&self, proof: &[u8], public: &PublicInputs) -> Result<(), String> {
         let words = public_words(&self.cs, &self.circuit, public);
-        let mut vt = VerifierTranscript::new(StdChallenger::default(), proof.to_vec());
+        let mut vt = VerifierTranscript::new(Challenger::default(), proof.to_vec());
         self.verifier
             .verify(&words, &mut vt)
             .map_err(|e| format!("verification failed: {e:?}"))?;

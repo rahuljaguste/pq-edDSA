@@ -5,14 +5,11 @@
 
 use anyhow::{Context, Result, bail};
 use binius_frontend::CircuitBuilder;
-use binius_verifier::{
-    config::StdChallenger,
-    transcript::{ProverTranscript, VerifierTranscript},
-};
+use binius_verifier::transcript::{ProverTranscript, VerifierTranscript};
 use clap::{Parser, Subcommand};
 use pq_eddsa::{
     circuit::{PqEddsaCircuit, PublicInputs, Relation, public_words},
-    config::{ProofConfig, SECURITY_BITS},
+    config::{Challenger, ProofConfig, SECURITY_BITS},
 };
 
 #[derive(Parser)]
@@ -73,7 +70,7 @@ enum Cmd {
         #[arg(long, default_value_t = 1)]
         log_inv_rate: usize,
         /// FRI query-phase target in bits. Spike branch only; upstream hardcodes 96.
-        #[arg(long, default_value_t = pq_eddsa::config::SECURITY_BITS)]
+        #[arg(long, default_value_t = pq_eddsa::config::DEFAULT_SECURITY_BITS)]
         security_bits: usize,
         /// Relation to prove. `rand` randomises hx with a fresh secret, which is what
         /// the paper's security proof requires; `det` matches PQChain.
@@ -93,7 +90,7 @@ enum Cmd {
         #[arg(long, default_value_t = 1)]
         log_inv_rate: usize,
         /// Must match what the proof was produced under.
-        #[arg(long, default_value_t = pq_eddsa::config::SECURITY_BITS)]
+        #[arg(long, default_value_t = pq_eddsa::config::DEFAULT_SECURITY_BITS)]
         security_bits: usize,
         /// Must match the relation the proof was produced under.
         #[arg(long, value_enum, default_value = "det")]
@@ -184,13 +181,16 @@ fn main() -> Result<()> {
                 .map_err(|e| anyhow::anyhow!("witness population failed: {e:?}"))?;
             let witness = w.into_value_vec();
 
-            let cfg = ProofConfig { log_inv_rate, security_bits };
+            let cfg = ProofConfig {
+                log_inv_rate,
+                security_bits,
+            };
             let (_verifier, prover) = cfg.setup(cs.constraint_system().clone())?;
 
             let mut rng_seed = [0u8; 32];
             getrandom::fill(&mut rng_seed)?;
             let mut rng = <rand::rngs::StdRng as rand::SeedableRng>::from_seed(rng_seed);
-            let mut tr = ProverTranscript::new(StdChallenger::default());
+            let mut tr = ProverTranscript::new(Challenger::default());
             let t = std::time::Instant::now();
             prover
                 .prove(&witness, &mut rng, &mut tr)
@@ -239,9 +239,12 @@ fn main() -> Result<()> {
             // statement be accepted as a proof of this one.
             let public = public_words(&cs, &circuit, &pi);
 
-            let cfg = ProofConfig { log_inv_rate, security_bits };
+            let cfg = ProofConfig {
+                log_inv_rate,
+                security_bits,
+            };
             let verifier = cfg.setup_verifier(cs.constraint_system().clone())?;
-            let mut vt = VerifierTranscript::new(StdChallenger::default(), proof);
+            let mut vt = VerifierTranscript::new(Challenger::default(), proof);
             let t = std::time::Instant::now();
             verifier
                 .verify(&public, &mut vt)

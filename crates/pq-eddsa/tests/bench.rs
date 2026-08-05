@@ -9,7 +9,6 @@ use binius_frontend::CircuitBuilder;
 use binius_hash::{Blake3HashSuite, sha256::Sha256HashSuite};
 use binius_prover::{OptimalPackedB128, zk_config::ZKProver};
 use binius_verifier::{
-    config::StdChallenger,
     transcript::{ProverTranscript, VerifierTranscript},
     zk_config::ZKVerifier,
 };
@@ -69,8 +68,8 @@ where
     verify_constraints(cs.constraint_system(), &witness).unwrap();
 
     let t_setup = std::time::Instant::now();
-    let verifier = ZKVerifier::<binius_field::BinaryField128bGhash, S>::setup(cs.constraint_system().clone(), 1).unwrap();
-    let prover = ZKProver::<OptimalPackedB128, S>::setup(&verifier).unwrap();
+    let verifier = pq_eddsa::config::Verifier::setup(cs.constraint_system().clone(), 1).unwrap();
+    let prover = pq_eddsa::config::Prover::setup(&verifier).unwrap();
     let setup_ms = t_setup.elapsed().as_millis();
 
     let mut seed_bytes = [0u8; 32];
@@ -82,14 +81,15 @@ where
 
     for run in 0..=RUNS {
         let t = std::time::Instant::now();
-        let mut tr = ProverTranscript::new(StdChallenger::default());
+        let mut tr = ProverTranscript::new(pq_eddsa::config::Challenger::default());
         let mut rng = <rand::rngs::StdRng as rand::SeedableRng>::from_seed(seed_bytes);
         prover.prove(&witness, &mut rng, &mut tr).unwrap();
         let proof = tr.finalize();
         let p_el = t.elapsed().as_millis();
 
         let t2 = std::time::Instant::now();
-        let mut vt = VerifierTranscript::new(StdChallenger::default(), proof.clone());
+        let mut vt =
+            VerifierTranscript::new(pq_eddsa::config::Challenger::default(), proof.clone());
         verifier.verify(witness.public(), &mut vt).unwrap();
         vt.finalize().unwrap();
         let v_el = t2.elapsed().as_millis();
