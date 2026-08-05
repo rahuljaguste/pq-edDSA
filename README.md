@@ -110,6 +110,32 @@ without stating how it was measured, so the two may not be counting the same thi
 reported here because they publish it and a comparison that quietly drops the metric where
 I lose is not a comparison.
 
+### The wide configuration, measured on this branch
+
+`--features wide` selects a `GF(2^256)` challenge field with SHA-512, from an unmerged
+fork. All four rows below were measured on this branch, medians with the first run
+discarded, the machine settled below load 4 before each:
+
+| | setup | prove | verify | proof | peak heap |
+|---|---|---|---|---|---|
+| native, narrow | 108 ms | **159 ms** | 58 ms | 515 KiB | — |
+| native, wide | 252 ms | **475 ms** | 215 ms | 2,447 KiB | — |
+| browser, narrow | 760 ms | **1,763 ms** | 245 ms | 515 KiB | 212 MB |
+| browser, wide | 913 ms | **6,059 ms** | 1,639 ms | 2,447 KiB | 604 MB |
+
+Wide costs 2.99× prove and 4.75× proof size natively, for ~240-bit classical and ~120-bit
+quantum against narrow's 96 and ~48. Proof sizes are byte-identical between native and
+browser in both configurations.
+
+**These are not comparable with the table above.** Every row here carries a ~30% narrow-path
+regression in the fork: at the same 96-bit target, upstream proves in 125 ms and the fork in
+159 ms. Compare the four rows with each other, never with `main`.
+
+The browser penalty is 11.1× narrow and 12.8× wide. An earlier round measured 14.8× and
+12.2×, the opposite ordering, so the two are close and this machine cannot separate them —
+any claim that one is systematically cheaper would be over-reading single rounds under
+sustained load.
+
 ### Why the gap is that large
 
 PQChain publishes the breakdown itself:
@@ -296,6 +322,13 @@ browser penalty is **14.8× on proving and 4.7× on verification**.
 
 The browser's `pk`, `hx` and proof size match the native CLI byte for byte.
 
+Those figures are `main`'s, against upstream. A build of this branch is slower on every
+row, because the fork it patches in carries a ~30% narrow-path regression: browser narrow
+measures 1,763 ms here rather than 1,684. See
+[the wide configuration](#the-wide-configuration-measured-on-this-branch) for all four
+combinations measured on the branch itself, including what `--features wide` costs in a
+browser (6,059 ms, 604 MB).
+
 **Why 15×, and why `+simd128` does not fix it.** binius64 multiplies in GF(2^128) with a
 hardware carry-less multiply on both native architectures: `vmull_p64` on aarch64,
 `_mm_clmulepi64_si128` on x86-64. WebAssembly has no such instruction, so wasm32 falls
@@ -411,8 +444,9 @@ much they matter for the paper's actual use case.
   **This branch has done it, against an unmerged fork.** `--features wide` selects
   GF(2^256) challenges with SHA-512 and delivers **~240 bits classical, ~120 quantum**,
   measured, with every test passing under both configurations. On `R_det` it proves in
-  502 ms and verifies in 218 ms against a 2.4 MB proof: 3.1x the narrow prove time, and
-  still 10.7x faster than PQChain with roughly twice its soundness.
+  475 ms and verifies in 215 ms against a 2,447 KiB proof — 2.99× the narrow prove time,
+  and still 11× faster than PQChain with roughly twice its soundness. Full numbers under
+  [Results](#the-wide-configuration-measured-on-this-branch).
 
   What remains blocked is the part that matters most. 96 bits is checkable in one grep of
   upstream; ~240 rests on unreviewed work by the same person claiming it. Until that fork
