@@ -51,8 +51,12 @@ pub use cfg::{Challenger, DEFAULT_SECURITY_BITS, Field, Packed, Suite};
 pub type Verifier = ZKVerifier<Field, Suite>;
 pub type Prover = ZKProver<Packed, Suite>;
 
-/// Classical soundness in bits. Fixed by upstream; not currently configurable.
-pub const SECURITY_BITS: usize = 96;
+/// What upstream hardcodes, kept for reference and for documenting the gap.
+///
+/// **Not what this build uses.** Read [`DEFAULT_SECURITY_BITS`] for that, which follows
+/// the selected feature. Reporting this constant instead is how the `stat` subcommand and
+/// the wasm bindings both came to claim 96 bits while running the wide configuration.
+pub const UPSTREAM_SECURITY_BITS: usize = 96;
 
 /// Recommended `n_dummy_constraints` for the ZK blinding.
 ///
@@ -107,8 +111,12 @@ impl ProofConfig {
     }
 
     /// The query-phase target this config was built with, for reporting alongside any
-    /// measurement. Not the same as the achieved soundness: on the narrow field the
-    /// logUp\* term caps the whole system at 112 regardless of what is requested here.
+    /// measurement.
+    ///
+    /// **Not the achieved soundness.** logUp\* contributes a fixed `2^16/|F|` that no
+    /// query budget affects, so the narrow field caps at 112 and the wide one at ~240,
+    /// whatever is requested here. Asking for more is accepted silently and costs real
+    /// proof size for nothing.
     pub const fn security_bits(&self) -> usize {
         self.security_bits
     }

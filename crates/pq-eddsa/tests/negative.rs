@@ -11,15 +11,8 @@
 
 use binius_core::verify::verify_constraints;
 use binius_frontend::CircuitBuilder;
-use binius_hash::sha256::Sha256HashSuite;
-use binius_prover::{OptimalPackedB128, zk_config::ZKProver};
-use binius_verifier::{
-    transcript::{ProverTranscript, VerifierTranscript},
-    zk_config::ZKVerifier,
-};
+use binius_verifier::transcript::{ProverTranscript, VerifierTranscript};
 use pq_eddsa::circuit::{PqEddsaCircuit, PublicInputs, public_words};
-
-type Suite = Sha256HashSuite;
 
 const SEED_A: &str = "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60";
 const SEED_B: &str = "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb";

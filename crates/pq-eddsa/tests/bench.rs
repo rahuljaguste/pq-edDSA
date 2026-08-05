@@ -7,11 +7,7 @@
 use binius_core::verify::verify_constraints;
 use binius_frontend::CircuitBuilder;
 use binius_hash::{Blake3HashSuite, sha256::Sha256HashSuite};
-use binius_prover::{OptimalPackedB128, zk_config::ZKProver};
-use binius_verifier::{
-    transcript::{ProverTranscript, VerifierTranscript},
-    zk_config::ZKVerifier,
-};
+use binius_verifier::transcript::{ProverTranscript, VerifierTranscript};
 use pq_eddsa::circuit::PqEddsaCircuit;
 
 const RUNS: usize = 30;
@@ -111,7 +107,10 @@ where
 
     println!("\n=== PQ-EdDSA R_det, full circuit — {suite_name} Merkle ===");
     println!("host:            Apple M1 Pro (8 cores), single-threaded");
-    println!("soundness:       96 bits classical (upstream SECURITY_BITS)");
+    println!(
+        "query target:    {} bits",
+        pq_eddsa::config::DEFAULT_SECURITY_BITS
+    );
     println!("config:          ZK path, log_inv_rate = 1, SHA-256 Merkle");
     println!();
     println!("AND constraints: {n_and}");

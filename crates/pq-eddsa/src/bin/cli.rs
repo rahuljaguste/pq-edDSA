@@ -9,7 +9,7 @@ use binius_verifier::transcript::{ProverTranscript, VerifierTranscript};
 use clap::{Parser, Subcommand};
 use pq_eddsa::{
     circuit::{PqEddsaCircuit, PublicInputs, Relation, public_words},
-    config::{Challenger, ProofConfig, SECURITY_BITS},
+    config::{Challenger, DEFAULT_SECURITY_BITS, ProofConfig},
 };
 
 #[derive(Parser)]
@@ -145,7 +145,7 @@ fn main() -> Result<()> {
             println!("AND constraints:  {}", s.n_and_constraints());
             println!("IMUL constraints: {}", s.imul_constraints.len());
             println!("private wires:    {}", s.n_private);
-            println!("soundness:        {SECURITY_BITS} bits classical (default target)");
+            println!("query target:     {DEFAULT_SECURITY_BITS} bits (this build's default)");
             println!("relation:         {:?}", Relation::from(relation));
         }
 

@@ -30,7 +30,7 @@ use binius_frontend::{Circuit, CircuitBuilder};
 use binius_verifier::transcript::{ProverTranscript, VerifierTranscript};
 use pq_eddsa::{
     circuit::{PqEddsaCircuit, PublicInputs, Relation, public_words},
-    config::{Challenger, ProofConfig, Prover, SECURITY_BITS, Verifier},
+    config::{Challenger, DEFAULT_SECURITY_BITS, ProofConfig, Prover, Verifier},
 };
 use wasm_bindgen::prelude::*;
 
@@ -87,7 +87,7 @@ impl Session {
             and_constraints: s.n_and_constraints(),
             imul_constraints: s.imul_constraints.len(),
             private_wires: s.n_private,
-            security_bits: SECURITY_BITS,
+            security_bits: DEFAULT_SECURITY_BITS,
         }
     }
 
