@@ -29,7 +29,16 @@ lto = "thin"
 #
 # A git rev, not a local path: an absolute path builds only on the machine that has it,
 # which would make CI fail on every job rather than test the wide configuration. Pinned
-# rather than tracking the branch, so the measurements stay reproducible.
+# rather than tracking a branch, so the measurements stay reproducible.
+#
+# The rev lives on `spike/genericize-verifier-256b` in that fork, not on its main, and is
+# reachable from that one branch and no tag. Cargo takes `branch` or `rev` but not both,
+# so the branch is named here instead. **Delete, rebase or force-push that branch and this
+# pin breaks permanently** -- the commit becomes unreachable, GitHub collects it, and every
+# build here fails including CI. A tag would hold it independently of the branch:
+#
+#     git -C <fork> tag pq-eddsa-wide-base 251d595b
+#     git -C <fork> push origin pq-eddsa-wide-base
 #
 # main must never carry this: the published numbers depend on a pinned public revision.
 [patch."https://github.com/binius-zk/binius64"]
