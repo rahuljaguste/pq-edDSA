@@ -368,6 +368,33 @@ mod tests {
         );
     }
 
+    /// The `wide` passthrough must actually reach the types, not merely type-check.
+    ///
+    /// A feature that forwards but changes nothing would compile, pass every other test,
+    /// and quietly produce narrow proofs from a build labelled wide. Proof size is the
+    /// cheapest thing that cannot be faked: the wide field roughly quintuples it.
+    #[test]
+    fn the_build_is_the_configuration_it_claims() {
+        let s = Session::new(Relation::Det, 1).expect("setup");
+        let p = s.prove(&SEED, &[0u8; 32]).expect("prove");
+        let (lo, hi, label) = if cfg!(feature = "wide") {
+            (2_000_000, 3_500_000, "wide")
+        } else {
+            (400_000, 800_000, "narrow")
+        };
+        assert!(
+            (lo..=hi).contains(&p.bytes.len()),
+            "{label} build produced a {}-byte proof, outside {lo}..={hi} — \
+             the feature is probably not reaching pq_eddsa::config",
+            p.bytes.len()
+        );
+        assert_eq!(
+            s.stats().security_bits,
+            pq_eddsa::config::DEFAULT_SECURITY_BITS,
+            "reported target does not follow the build"
+        );
+    }
+
     #[test]
     fn relation_names_parse() {
         assert_eq!(parse_relation("det").unwrap(), Relation::Det);

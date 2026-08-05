@@ -19,6 +19,17 @@ getrandom = "0.4"
 rand = { version = "0.10.1", default-features = false, features = ["std", "std_rng"] }
 hex.workspace = true
 
+[features]
+# SPIKE BRANCH ONLY. Forwards to pq-eddsa/wide: GF(2^256) challenges and SHA-512
+# commitments, from an unmerged fork. Everything in this crate reads its types from
+# pq_eddsa::config, so the feature is the only thing that has to move.
+#
+# Expect it to be slow in a browser. Wide costs 3.1x native, and the wasm penalty is a
+# further ~14.8x because WebAssembly has no carry-less multiply, so GF(2^256)
+# multiplication is software all the way down. Untested in a browser; that combination
+# is the point of measuring rather than assuming.
+wide = ["pq-eddsa/wide"]
+
 # The ZK path needs real entropy for blinding, and `Relation::Rand` needs it for `rx`.
 # On wasm32 that means routing getrandom through the JS crypto API; without this the
 # build fails to link.

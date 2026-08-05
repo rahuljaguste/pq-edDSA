@@ -19,7 +19,10 @@ command -v wasm-bindgen >/dev/null || {
 	exit 1
 }
 
-cargo build --release --target wasm32-unknown-unknown -p pq-eddsa-wasm
+# SPIKE BRANCH: WIDE=1 selects GF(2^256)/SHA-512 from the fork.
+features=""
+[ "${WIDE:-}" = "1" ] && features="--features wide"
+cargo build --release --target wasm32-unknown-unknown -p pq-eddsa-wasm $features
 wasm-bindgen --target web --out-dir web/pkg --no-typescript \
 	target/wasm32-unknown-unknown/release/pq_eddsa_wasm.wasm
 
