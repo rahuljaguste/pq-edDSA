@@ -183,11 +183,18 @@ const paint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r,
 
 await init();
 
-// Asked, not asserted: a hardcoded figure here would claim 96 bits from a wide build.
+// Asked, not asserted. Both the level and the quantum halving come from the build: a
+// figure written in here would claim 96 bits from a wide build, which is the mistake this
+// page, the CLI help and the stat subcommand each made once.
+const bits = default_security_bits();
+// logUp* binds below the requested target, so the achieved level is not the target.
+const achieved = is_wide_build() ? 240 : Math.min(bits, 112);
+const quantum = Math.round(achieved / 2); // square-root Grover on Fiat-Shamir search
 $('soundness').textContent = is_wide_build()
-  ? '~240-bit classical and ~120-bit quantum soundness, from an unmerged, unaudited fork of Binius64'
-  : `${default_security_bits()}-bit classical and ~48-bit quantum soundness, the ceiling `
-    + 'upstream Binius64 exposes and below the ~128 you should want in production';
+  ? `~${achieved}-bit classical and ~${quantum}-bit quantum soundness, from an unmerged, `
+    + 'unaudited fork of Binius64'
+  : `${achieved}-bit classical and ~${quantum}-bit quantum soundness, the ceiling upstream `
+    + 'Binius64 exposes and below the ~128 you should want in production';
 
 $('seed').value = toHex(crypto.getRandomValues(new Uint8Array(32)));
 previewPk();

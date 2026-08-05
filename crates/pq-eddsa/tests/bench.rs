@@ -7,7 +7,11 @@
 use binius_core::verify::verify_constraints;
 use binius_frontend::CircuitBuilder;
 use binius_hash::{Blake3HashSuite, sha256::Sha256HashSuite};
-use binius_verifier::transcript::{ProverTranscript, VerifierTranscript};
+use binius_prover::zk_config::ZKProver;
+use binius_verifier::{
+    transcript::{ProverTranscript, VerifierTranscript},
+    zk_config::ZKVerifier,
+};
 use pq_eddsa::circuit::PqEddsaCircuit;
 
 const RUNS: usize = 30;
@@ -64,13 +68,18 @@ where
     verify_constraints(cs.constraint_system(), &witness).unwrap();
 
     let t_setup = std::time::Instant::now();
-    // Through ProofConfig, not Verifier::setup directly: the latter hardcodes the narrow
-    // query target, so under `--features wide` it would pair a GF(2^256) field with a
-    // 96-bit budget. The query phase would bind at 96 and the measurement would be of a
-    // configuration nobody would ship.
-    let (verifier, prover) = pq_eddsa::config::ProofConfig::default()
-        .setup(cs.constraint_system().clone())
-        .unwrap();
+    // Generic over `S`, because varying the hash suite is the whole point of
+    // `measure_hash_suites` and `ProofConfig` fixes it to the build's own. But with
+    // `setup_with_security_bits` and the build's target, never the plain `setup`: that
+    // hardcodes the narrow 96 and would pair a `GF(2^256)` field with a 96-bit budget,
+    // measuring a configuration nobody would ship.
+    let verifier = ZKVerifier::<pq_eddsa::config::Field, S>::setup_with_security_bits(
+        cs.constraint_system().clone(),
+        1,
+        pq_eddsa::config::DEFAULT_SECURITY_BITS,
+    )
+    .unwrap();
+    let prover = ZKProver::<pq_eddsa::config::Packed, S>::setup(&verifier).unwrap();
     let setup_ms = t_setup.elapsed().as_millis();
 
     let mut seed_bytes = [0u8; 32];
@@ -113,12 +122,13 @@ where
     println!("\n=== PQ-EdDSA R_det, full circuit — {suite_name} Merkle ===");
     println!("host:            Apple M1 Pro (8 cores), single-threaded");
     println!(
-        "query target:    {} bits",
-        pq_eddsa::config::DEFAULT_SECURITY_BITS
-    );
-    println!(
-        "config:          ZK path, log_inv_rate = 1, query target {} bits",
-        pq_eddsa::config::DEFAULT_SECURITY_BITS
+        "config:          ZK path, log_inv_rate = 1, query target {} bits, {} field",
+        pq_eddsa::config::DEFAULT_SECURITY_BITS,
+        if pq_eddsa::config::IS_WIDE {
+            "GF(2^256)"
+        } else {
+            "GF(2^128)"
+        }
     );
     println!();
     println!("AND constraints: {n_and}");

@@ -158,14 +158,19 @@ the paper's actual use case:
 
 ## Soundness
 
-**This PoC carries 96-bit classical soundness. PQChain carries ~128-bit. That is a real
-difference and it is not in my favour.**
+**This PoC carries 96-bit classical soundness by default. PQChain carries ~128-bit.
+That is a real difference and it is not in my favour** — see below for what this branch
+reaches, and at what cost to how much you should trust it.
 
 Upstream Binius64 fixes `SECURITY_BITS = 96` (`crates/verifier/src/verify.rs` in *their*
-repository, not this one) and
-`ZKVerifier::setup` accepts no override, so 96 is the only setting available. Reaching even
-112 would require patching upstream, and the narrow field caps there regardless: the
-logUp\* term contributes a fixed `2^16/|F| = 2^-112` that no query budget affects.
+repository, not this one) and `ZKVerifier::setup` accepts no override, so **against
+upstream** 96 is the only setting available.
+
+This branch patches upstream, so on it 96 is a default rather than a ceiling. `112` is
+reachable on the narrow field and was measured free in proving time for +12% proof size;
+past it the logUp\* term contributes a fixed `2^16/|F| = 2^-112` that no query budget
+affects. `--features wide` moves to `GF(2^256)` and reaches ~240. The default stays 96 so
+that a narrow build here is directly comparable with `main`.
 
 | configuration | field | hash | classical | quantum (√Grover) |
 |---|---|---|---|---|
@@ -373,7 +378,7 @@ The interesting decisions, with measurements, are in
 
 ## Testing
 
-92 tests. The suite is built around negative tests, because an under-constrained circuit
+99 tests, under each of the two configurations. The suite is built around negative tests, because an under-constrained circuit
 passes every positive test: it proves true statements correctly and false ones too.
 
 - Differential against `curve25519-dalek` at every window size, plus RFC 8032 vectors.

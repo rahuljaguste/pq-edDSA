@@ -24,10 +24,12 @@ hex.workspace = true
 # commitments, from an unmerged fork. Everything in this crate reads its types from
 # pq_eddsa::config, so the feature is the only thing that has to move.
 #
-# Expect it to be slow in a browser. Wide costs 3.1x native, and the wasm penalty is a
-# further ~14.8x because WebAssembly has no carry-less multiply, so GF(2^256)
-# multiplication is software all the way down. Untested in a browser; that combination
-# is the point of measuring rather than assuming.
+# Slow in a browser, measured rather than predicted: 6.14 s to prove and 604 MB of heap,
+# against 1.7 s and 213 MB narrow. The browser penalty for wide is 12.2x, not the 14.8x
+# that scaling the narrow figure would suggest -- WebAssembly has no carry-less multiply,
+# so GF(2^256) multiplication is software either way, but the ratio does not carry across
+# configurations. 604 MB is the number that would decide this on a phone, and that is
+# still untested.
 wide = ["pq-eddsa/wide"]
 
 # The ZK path needs real entropy for blinding, and `Relation::Rand` needs it for `rx`.

@@ -43,7 +43,13 @@ mod cfg {
     /// is hardware-specific and worth re-measuring on x86-64 without SHA-NI.
     pub type Suite = binius_hash::sha256::Sha256HashSuite;
     pub type Challenger = binius_verifier::config::StdChallenger;
-    /// The query target this configuration can actually reach. Past it, logUp\* binds.
+    /// 96, which is upstream's constant and **not** this field's ceiling: the narrow
+    /// field reaches 112 before logUp\* binds, and 112 measured free in proving time for
+    /// +12% proof size.
+    ///
+    /// Left at 96 deliberately, unlike the wide default which was moved to its binding
+    /// level. A narrow build on this branch should stay directly comparable with `main`,
+    /// which cannot raise it at all. Pass `--security-bits 112` to take the rest.
     pub const DEFAULT_SECURITY_BITS: usize = binius_verifier::SECURITY_BITS;
     pub const IS_WIDE: bool = false;
 }
@@ -130,7 +136,7 @@ pub struct ProofConfig {
     /// FRI query-phase target, in bits.
     ///
     /// SPIKE BRANCH ONLY. Upstream hardcodes 96 and exposes no override; this is available
-    /// because the branch patches in a fork carrying `setup_with_security_bits`. On the
+    /// because the branch patches in a fork carrying `setup_with_security_bits`. The
     /// useful ceiling is 112 on the narrow field and ~240 on the wide one: past that the
     /// logUp\* term at `2^16/|F|` binds instead, and a larger query budget buys nothing.
     pub security_bits: usize,

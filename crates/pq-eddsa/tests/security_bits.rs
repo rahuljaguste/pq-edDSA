@@ -38,6 +38,12 @@ fn prove_at(security_bits: usize) -> (Vec<u8>, PublicInputs) {
     (tr.finalize(), PqEddsaCircuit::public_inputs(&SEED, &MSG))
 }
 
+/// Returns whether the verifier *accepted*, panicking if it could not be built.
+///
+/// Distinguishing the two matters: folding a setup failure into `false` would let
+/// `a_proof_does_not_verify_under_a_different_target` pass vacuously if a future fork
+/// revision started rejecting the mismatched target at setup instead of at verification.
+/// The test would then be asserting nothing while still going green.
 fn verify_at(proof: &[u8], pi: &PublicInputs, security_bits: usize) -> bool {
     let b = CircuitBuilder::new();
     let circuit = PqEddsaCircuit::build(&b);
@@ -47,9 +53,9 @@ fn verify_at(proof: &[u8], pi: &PublicInputs, security_bits: usize) -> bool {
         log_inv_rate: 1,
         security_bits,
     };
-    let Ok(verifier) = cfg.setup_verifier(cs.constraint_system().clone()) else {
-        return false;
-    };
+    let verifier = cfg
+        .setup_verifier(cs.constraint_system().clone())
+        .unwrap_or_else(|e| panic!("verifier setup failed at {security_bits} bits: {e}"));
     let mut vt = VerifierTranscript::new(Challenger::default(), proof.to_vec());
     verifier.verify(&public, &mut vt).is_ok() && vt.finalize().is_ok()
 }
