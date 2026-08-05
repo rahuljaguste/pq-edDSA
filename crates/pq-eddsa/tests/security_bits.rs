@@ -72,15 +72,21 @@ fn a_proof_does_not_verify_under_a_different_target() {
 
 /// Raising the target must cost proof bytes. If it did not, the parameter would not be
 /// buying queries and the whole measurement on this branch would be meaningless.
+///
+/// Raises *up to* the default rather than past it. Going above would land over the cap on
+/// the wide build, where the default is already the binding level, and would then be
+/// testing the same thing as `over_requesting_is_accepted_silently_and_is_not_free`
+/// instead of a genuine raise.
 #[test]
 fn raising_the_target_grows_the_proof() {
-    let (lo, _) = prove_at(DEFAULT_SECURITY_BITS);
-    let (hi, _) = prove_at(DEFAULT_SECURITY_BITS + 16);
+    let below = DEFAULT_SECURITY_BITS - 16;
+    let (lo, _) = prove_at(below);
+    let (hi, _) = prove_at(DEFAULT_SECURITY_BITS);
     assert!(
         hi.len() > lo.len(),
         "raising the target from {} to {} did not grow the proof ({} vs {} bytes)",
+        below,
         DEFAULT_SECURITY_BITS,
-        DEFAULT_SECURITY_BITS + 16,
         lo.len(),
         hi.len()
     );
