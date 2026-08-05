@@ -99,11 +99,14 @@ quoting these.
 | proof size | **515 KiB** | 5.4 MB | **10.5× smaller** |
 | **peak memory** | **~280 MB** | **34 MB** | **8× more, this is worse** |
 | host | Apple M1 Pro, 8 cores | Apple M4 Pro, 12 cores | *this is slower silicon* |
-| **soundness** | **96-bit classical** | **~128-bit classical** | **this is weaker** |
+| **soundness, classical** | **96-bit** | **~128-bit** | **this is weaker** |
+| **soundness, quantum** | **~48-bit** | **~64-bit** | **this is weaker** |
 
-The last three rows matter. My hardware is slower, which understates the gap; my memory
-use and soundness are both worse, which overstates it. None is negligible and all are
-quantified below.
+The last four rows matter. My hardware is slower, which understates the gap; my memory
+use and soundness are both worse, which overstates it. The quantum row is the one an
+artifact about post-quantum readiness should be judged on, and it is the row where this
+does worst — see [the wide configuration](#the-wide-configuration-measured-on-this-branch)
+for what closes it. None of the four is negligible and all are quantified below.
 
 Memory is measured as whole-process peak RSS over three runs; PQChain's README gives 34 MB
 without stating how it was measured, so the two may not be counting the same thing. It is
@@ -116,16 +119,22 @@ I lose is not a comparison.
 fork. All four rows below were measured on this branch, medians with the first run
 discarded, the machine settled below load 4 before each:
 
-| | setup | prove | verify | proof | peak heap |
-|---|---|---|---|---|---|
-| native, narrow | 108 ms | **159 ms** | 58 ms | 515 KiB | — |
-| native, wide | 252 ms | **475 ms** | 215 ms | 2,447 KiB | — |
-| browser, narrow | 760 ms | **1,763 ms** | 245 ms | 515 KiB | 212 MB |
-| browser, wide | 913 ms | **6,059 ms** | 1,639 ms | 2,447 KiB | 604 MB |
+| | classical | quantum | prove | verify | proof | setup | peak heap |
+|---|---|---|---|---|---|---|---|
+| native, narrow | 96 | ~48 | **159 ms** | 58 ms | 515 KiB | 108 ms | — |
+| native, wide | **~240** | **~120** | **475 ms** | 215 ms | 2,447 KiB | 252 ms | — |
+| browser, narrow | 96 | ~48 | **1,763 ms** | 245 ms | 515 KiB | 760 ms | 212 MB |
+| browser, wide | **~240** | **~120** | **6,059 ms** | 1,639 ms | 2,447 KiB | 913 ms | 604 MB |
 
-Wide costs 2.99× prove and 4.75× proof size natively, for ~240-bit classical and ~120-bit
-quantum against narrow's 96 and ~48. Proof sizes are byte-identical between native and
-browser in both configurations.
+Soundness first, because it is the only reason to pay the rest. Wide costs 2.99× prove and
+4.75× proof size natively and buys **2.5× the classical bits and 2.5× the quantum bits**.
+Both quantum figures are the square-root Grover heuristic applied to Fiat-Shamir challenge
+search, and both are bound by logUp\* rather than by the query budget: 240 not 256 on the
+wide field, 96 rising only to 112 on the narrow one. Proof sizes are byte-identical between
+native and browser in both configurations.
+
+For the comparison that matters to a post-quantum readiness artifact: PQChain carries ~64
+bits quantum. Narrow is well below it at ~48; wide is roughly double at ~120.
 
 **These are not comparable with the table above.** Every row here carries a ~30% narrow-path
 regression in the fork: at the same 96-bit target, upstream proves in 125 ms and the fork in
