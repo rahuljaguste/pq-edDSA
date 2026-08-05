@@ -22,28 +22,32 @@ hex = "0.4"
 [profile.release]
 lto = "thin"
 
-# SPIKE BRANCH ONLY. Points every binius crate at the local fork's
+# SPIKE BRANCH ONLY. Points every binius crate at the fork's
 # spike/genericize-verifier-256b, which adds SECURITY_BITS_WIDE, a GF(2^256) challenge
 # field with SHA-512, and ZKVerifier::setup_with_security_bits. That branch is based on
-# 21f0ceea, the same revision main pins, so the only variable is the fork's own work.
+# 21f0ceea, the same revision main pins, so the fork's own work is the only variable.
+#
+# A git rev, not a local path: an absolute path builds only on the machine that has it,
+# which would make CI fail on every job rather than test the wide configuration. Pinned
+# rather than tracking the branch, so the measurements stay reproducible.
 #
 # main must never carry this: the published numbers depend on a pinned public revision.
 [patch."https://github.com/binius-zk/binius64"]
-binius-circuits = { path = "/Users/rahuljaguste/pq/binius64/crates/circuits" }
-binius-compute = { path = "/Users/rahuljaguste/pq/binius64/crates/compute" }
-binius-core = { path = "/Users/rahuljaguste/pq/binius64/crates/core" }
-binius-field = { path = "/Users/rahuljaguste/pq/binius64/crates/field" }
-binius-frontend = { path = "/Users/rahuljaguste/pq/binius64/crates/frontend" }
-binius-hash = { path = "/Users/rahuljaguste/pq/binius64/crates/hash" }
-binius-iop = { path = "/Users/rahuljaguste/pq/binius64/crates/iop" }
-binius-iop-prover = { path = "/Users/rahuljaguste/pq/binius64/crates/iop-prover" }
-binius-ip = { path = "/Users/rahuljaguste/pq/binius64/crates/ip" }
-binius-ip-prover = { path = "/Users/rahuljaguste/pq/binius64/crates/ip-prover" }
-binius-math = { path = "/Users/rahuljaguste/pq/binius64/crates/math" }
-binius-prover = { path = "/Users/rahuljaguste/pq/binius64/crates/prover" }
-binius-spartan-frontend = { path = "/Users/rahuljaguste/pq/binius64/crates/spartan-frontend" }
-binius-spartan-prover = { path = "/Users/rahuljaguste/pq/binius64/crates/spartan-prover" }
-binius-spartan-verifier = { path = "/Users/rahuljaguste/pq/binius64/crates/spartan-verifier" }
-binius-transcript = { path = "/Users/rahuljaguste/pq/binius64/crates/transcript" }
-binius-utils = { path = "/Users/rahuljaguste/pq/binius64/crates/utils" }
-binius-verifier = { path = "/Users/rahuljaguste/pq/binius64/crates/verifier" }
+binius-circuits = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-compute = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-core = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-field = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-frontend = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-hash = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-iop = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-iop-prover = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-ip = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-ip-prover = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-math = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-prover = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-spartan-frontend = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-spartan-prover = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-spartan-verifier = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-transcript = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-utils = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
+binius-verifier = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }

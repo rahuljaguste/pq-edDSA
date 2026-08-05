@@ -3,12 +3,13 @@ name: CI
 on:
   # main only. Feature branches do not burn CI minutes; open a pull request when ready.
   push:
-    branches: [main]
+    branches: [main, "spike/**"]
   # Pull requests targeting main only, and every run from an external contributor waits
   # for a maintainer to approve it. See the repository's Actions settings: "Require
   # approval for all external contributors".
   pull_request:
     branches: [main]
+    # Spike branches too, or a job added to test one never runs before merge.
   # So a maintainer can run it on demand without pushing.
   workflow_dispatch:
   # binius64 is pinned to a git revision, so nothing here drifts on its own. This catches
