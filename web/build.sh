@@ -31,3 +31,6 @@ echo "built web/pkg/ — serve it over HTTP, not file://, which fails CORS:"
 echo "  (cd web && python3 -m http.server 8742)"
 echo "  open http://localhost:8742/            # the demo"
 echo "  open http://localhost:8742/bench.html?auto=1   # the benchmark"
+echo
+echo "WIDE=1 ./web/build.sh selects the fork's GF(2^256) path: ~6 s to prove in a"
+echo "browser and 604 MB of heap, against 1.7 s and 213 MB narrow."

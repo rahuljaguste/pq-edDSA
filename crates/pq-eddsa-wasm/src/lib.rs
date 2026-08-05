@@ -265,6 +265,22 @@ impl JsSession {
     }
 }
 
+/// What this build targets, before any session exists.
+///
+/// The demo's warning box states a soundness level, and a page that hardcodes it will
+/// claim 96 bits while running the wide configuration. Setup is slow, so the page cannot
+/// wait for a session to ask.
+#[wasm_bindgen]
+pub fn default_security_bits() -> usize {
+    pq_eddsa::config::DEFAULT_SECURITY_BITS
+}
+
+/// Whether this build uses the fork's wide `GF(2^256)` path.
+#[wasm_bindgen]
+pub fn is_wide_build() -> bool {
+    cfg!(feature = "wide")
+}
+
 /// The public key a seed yields, hex — without proving anything. Lets the page show the
 /// statement before the expensive step.
 #[wasm_bindgen]

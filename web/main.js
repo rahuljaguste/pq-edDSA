@@ -4,7 +4,8 @@
 // wasm32-unknown-unknown, so `performance.now()` around the calls is the only honest
 // source. Every number the page displays was measured in this tab, on this machine.
 
-import init, { PqEddsa, derive_pk_hex } from './pkg/pq_eddsa_wasm.js';
+import init, { PqEddsa, derive_pk_hex, default_security_bits, is_wide_build }
+  from './pkg/pq_eddsa_wasm.js';
 
 const $ = (id) => document.getElementById(id);
 const ms = (t) => Math.round((performance.now() - t) * 10) / 10;
@@ -181,6 +182,13 @@ $('download').onclick = () => {
 const paint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 
 await init();
+
+// Asked, not asserted: a hardcoded figure here would claim 96 bits from a wide build.
+$('soundness').textContent = is_wide_build()
+  ? '~240-bit classical and ~120-bit quantum soundness, from an unmerged, unaudited fork of Binius64'
+  : `${default_security_bits()}-bit classical and ~48-bit quantum soundness, the ceiling `
+    + 'upstream Binius64 exposes and below the ~128 you should want in production';
+
 $('seed').value = toHex(crypto.getRandomValues(new Uint8Array(32)));
 previewPk();
 $('prove').disabled = false;
