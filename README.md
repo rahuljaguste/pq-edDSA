@@ -78,9 +78,9 @@ overstate it. Quantum is the row a post-quantum readiness artifact should be jud
 it is the row where this does worst.
 
 Mine: 30 runs, first discarded, single-threaded, `log_inv_rate = 1`, **system load ~6 on 8
-cores** — not a quiescent machine, so conservative rather than flattering. Theirs: from
+cores**, not a quiescent machine, so these are conservative. Theirs: from
 PQChain's own README, 100 runs on an M4 Pro, not re-run here. Where their README and the
-paper disagree I quote **the figure more favourable to them** — 5.4 s, not the paper's 6.2 s,
+paper disagree I quote **the figure more favourable to them**: 5.4 s, not the paper's 6.2 s,
 which would make the ratio 54× instead of 47×. Reproduce with
 `cargo test -p pq-eddsa --release --test bench -- --ignored --nocapture`.
 
@@ -121,7 +121,7 @@ regression in the fork: at the same 96-bit target upstream proves in 125 ms, the
 Upstream fixes `SECURITY_BITS = 96` and exposes no override, so against upstream 96 is the
 ceiling. This branch patches upstream: 112 is reachable on the narrow field, free in
 proving time for +12% proof size, and `--features wide` reaches ~240. Past those, logUp\*
-contributes a fixed `2^16/|F|` that no query budget affects — 112 narrow, 240 not 256 wide.
+contributes a fixed `2^16/|F|` that no query budget affects: 112 narrow, 240 not 256 wide.
 The default stays 96 so a narrow build stays comparable with `main`.
 
 **Ligetron's figure is derived here, not published by Ligetron.** From `include/params.hpp`:
@@ -135,18 +135,6 @@ narrow build; upstream exposes no override, and the wide build's larger query co
 579) draws on the same budget, so that ceiling is not known to hold there. Zero-knowledge is
 a simulation property and a real answer needs a simulator construction.
 
-## Where Ligetron is ahead
-
-- **Memory.** 34 MB against ~280 MB peak RSS, roughly 8× better. Nothing here is tuned for
-  footprint.
-- **Soundness by default.** ~128 classical and ~64 quantum against 96 and ~48. `--features
-  wide` beats it, but on unreviewed work.
-- **Browser proving.** Designed for it, with WebGPU and a hosted demo. Ours works but costs
-  **11×** native: WebAssembly has no carry-less multiply, so GF(2^128) multiplication falls
-  back to software.
-- **Maturity.** A released zkVM, against a ZK path whose blinding parameter still carries a
-  `TODO`.
-
 ## Browser proving
 
 The seed must never leave the machine, which only holds if proving happens where the seed
@@ -157,42 +145,25 @@ already is.
 ```
 
 Chrome 150, cold profile, caching disabled: **1,763 ms** prove, **245 ms** verify, 515 KiB,
-**212 MB** peak heap; wide is 6,059 ms and 604 MB. `pk`, `hx` and proof size match the
+**212 MB** peak heap; wide is 6,059 ms and 604 MB. That is **11×** native, because
+WebAssembly has no carry-less multiply and GF(2^128) multiplication falls back to software. `pk`, `hx` and proof size match the
 native CLI byte for byte. The page is static files and issues no network requests after
-load — checkable in DevTools.
+load, which you can check in DevTools.
 
 Single-threaded: the `rayon` feature is off, and on wasm32 without atomics the parallel
 path degrades regardless. Multi-core would need cross-origin isolation and would buy
-nothing — rayon measures within noise on a circuit this small even natively.
-
-## Testing
-
-99 tests, under each configuration. Built around negative tests, because an
-under-constrained circuit passes every positive one.
-
-- Differential against `curve25519-dalek` at every window size, plus RFC 8032 vectors.
-- **Mutation-verified**: each negative test is checked to fail when the assertion it guards
-  is deleted. This caught a canonicality assertion with no deployed coverage.
-- Non-canonical representatives drawn from all of `[0, 2p)`, including the upper half an
-  adversarial witness can supply.
-- Circuit-shape invariance. PQChain shipped a bug of this class
-  (`fix/ed25519-scalar-mul-secret-leak`); in Binius64 it is structurally impossible.
-
-Design rationale, with measurements, is in [`crates/ed25519/BOUNDS.md`](crates/ed25519/BOUNDS.md):
-`F_p` modulo `2p = 2^256 − 38` because `p` is not limb-aligned; comb window 6 chosen by
-measuring proving time, not constraint counts; signed-digit recoding taking AND from 70,252
-to 57,314; no in-circuit inversion.
+nothing, since rayon measures within noise on a circuit this small even natively.
 
 ## What is missing
 
 **Blocked on upstream.** Soundness above 96 bits: `SECURITY_BITS` is fixed and the narrow
 field caps at 112 regardless. `--features wide` clears it at ~240/~120, but on an unmerged
-fork — and that is the part that matters. 96 bits is checkable in one grep of upstream;
+fork, which is the part that matters. 96 bits is checkable in one grep of upstream;
 ~240 rests on unreviewed work by the same person claiming it. **Until that fork is merged
 and reviewed, the stronger number is the weaker claim.** Also: `n_dummy_constraints` is
 hardcoded to 2 with no override.
 
-**Mine.** An on-chain verifier — a design problem, not a missing contract, since 515 KiB
+**Mine.** An on-chain verifier: a design problem, not a missing contract, since 515 KiB
 cannot be posted. A Web Worker, so proving does not freeze the tab for 1.7 s. Memory, ~280
 MB against 34 MB, unprofiled: on a phone that beats the proving time I win on. Firefox and
 Safari untested. An audit.
@@ -200,14 +171,6 @@ Safari untested. An audit.
 **Investigated and rejected.** Multi-core proving: rayon is within noise here, since the
 prover is latency-bound at 57K AND constraints. `+simd128`: 0.7%, measured. Further IMUL
 reduction: every lever lands in the same 2^13 padding tier.
-
-## Upstream contribution
-
-`binius-field` did not compile for `wasm32-unknown-unknown` with `+simd128`, a module
-orphaned by a refactor. Submitted as
-**[binius-zk/binius64#1993](https://github.com/binius-zk/binius64/pull/1993)**; the patch is
-[`docs/binius64-wasm32-simd128.patch`](docs/binius64-wasm32-simd128.patch). Offered as a
-correctness fix, not an optimisation: with it applied, `+simd128` is worth 0.7% here.
 
 ## Acknowledgements
 
@@ -224,10 +187,13 @@ correctness fix, not an optimisation: with it applied, `+simd128` is worth 0.7% 
 - [curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek), the
   independent reference throughout the test suite.
 
-## Contributing
+## More
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Negative tests must be mutation-verified, and any
-figure added to a document needs a measurement in the repository behind it.
+99 tests, under each configuration.
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) ·
+[design rationale](crates/ed25519/BOUNDS.md) ·
+[upstream fix](https://github.com/binius-zk/binius64/pull/1993)
+([patch](docs/binius64-wasm32-simd128.patch))
 
 ## Licence
 
