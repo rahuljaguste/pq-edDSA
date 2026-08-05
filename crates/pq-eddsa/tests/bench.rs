@@ -64,8 +64,13 @@ where
     verify_constraints(cs.constraint_system(), &witness).unwrap();
 
     let t_setup = std::time::Instant::now();
-    let verifier = pq_eddsa::config::Verifier::setup(cs.constraint_system().clone(), 1).unwrap();
-    let prover = pq_eddsa::config::Prover::setup(&verifier).unwrap();
+    // Through ProofConfig, not Verifier::setup directly: the latter hardcodes the narrow
+    // query target, so under `--features wide` it would pair a GF(2^256) field with a
+    // 96-bit budget. The query phase would bind at 96 and the measurement would be of a
+    // configuration nobody would ship.
+    let (verifier, prover) = pq_eddsa::config::ProofConfig::default()
+        .setup(cs.constraint_system().clone())
+        .unwrap();
     let setup_ms = t_setup.elapsed().as_millis();
 
     let mut seed_bytes = [0u8; 32];
@@ -111,7 +116,10 @@ where
         "query target:    {} bits",
         pq_eddsa::config::DEFAULT_SECURITY_BITS
     );
-    println!("config:          ZK path, log_inv_rate = 1, SHA-256 Merkle");
+    println!(
+        "config:          ZK path, log_inv_rate = 1, query target {} bits",
+        pq_eddsa::config::DEFAULT_SECURITY_BITS
+    );
     println!();
     println!("AND constraints: {n_and}");
     println!("IMUL constraints:{n_imul}");
@@ -136,6 +144,9 @@ where
     );
     println!();
     println!("PQChain (Ligetron, M4 Pro 12-core, ~128-bit soundness, avg of 100):");
-    println!("  prove 6200 ms | verify 2300 ms | proof 5.4 MB | 4,924,225 constraints");
+    // 5400, not the paper's 6200: where PQChain's README and the paper disagree, the
+    // figure more favourable to PQChain is the one quoted. The README says so; this line
+    // used to say otherwise.
+    println!("  prove 5400 ms | verify 2300 ms | proof 5.4 MB | 4,924,225 constraints");
     println!();
 }

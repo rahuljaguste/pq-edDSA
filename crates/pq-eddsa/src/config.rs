@@ -1,15 +1,27 @@
 //! Proving configuration.
 //!
-//! Every call site goes through [`ProofConfig`] rather than calling binius64's `setup`
-//! directly, so a future security-bits override or wider challenge field adds a field
-//! here instead of changing each caller.
+//! Every call site goes through [`ProofConfig`], never `ZKVerifier::setup` directly. That
+//! is not tidiness: the plain `setup` hardcodes the narrow query target, so calling it
+//! from a `--features wide` build pairs a `GF(2^256)` field with a 96-bit budget. The
+//! query phase then binds at 96 and the result is wide-field cost for narrow-field
+//! soundness. Any measurement taken that way is of a configuration nobody would ship.
 //!
 //! # Soundness
 //!
-//! Upstream fixes `SECURITY_BITS = 96` (`crates/verifier/src/verify.rs:39`) and
-//! `ZKVerifier::setup` takes no override, so **96 bits classical is the only setting
-//! available**. That is below the ~128 bits the Ligetron-based reference implementation
-//! carries, and every published benchmark must state its level alongside its numbers.
+//! SPIKE BRANCH. Upstream fixes `SECURITY_BITS = 96` and `ZKVerifier::setup` takes no
+//! override, so on `main` 96 bits classical is the only setting available. This branch
+//! patches in a fork adding `setup_with_security_bits` and a wide configuration, so two
+//! things become adjustable and neither is free:
+//!
+//! | build | query target | achieved | bound by |
+//! |---|---|---|---|
+//! | narrow (default) | 96, adjustable | up to ~112 | logUp\* at `2^16/|F|` |
+//! | `--features wide` | 256 | ~240 classical, ~120 quantum | logUp\* again |
+//!
+//! Raising the target past what the field can deliver is accepted silently and costs real
+//! proof size for nothing. Every published benchmark must state its level alongside its
+//! numbers, and any figure from this branch must also say it depends on an unmerged,
+//! unaudited fork.
 
 use anyhow::{Result, anyhow};
 use binius_core::constraint_system::ConstraintSystem;

@@ -136,8 +136,13 @@ fn proof_for_one_statement_does_not_verify_against_another() {
     cs.populate_wire_witness(&mut w).unwrap();
     let witness = w.into_value_vec();
 
-    let verifier = pq_eddsa::config::Verifier::setup(cs.constraint_system().clone(), 1).unwrap();
-    let prover = pq_eddsa::config::Prover::setup(&verifier).unwrap();
+    // Through ProofConfig, not Verifier::setup directly: the latter hardcodes the narrow
+    // query target, so under `--features wide` it would pair a GF(2^256) field with a
+    // 96-bit budget. The query phase would bind at 96 and the measurement would be of a
+    // configuration nobody would ship.
+    let (verifier, prover) = pq_eddsa::config::ProofConfig::default()
+        .setup(cs.constraint_system().clone())
+        .unwrap();
 
     let mut rng_seed = [0u8; 32];
     getrandom::fill(&mut rng_seed).unwrap();

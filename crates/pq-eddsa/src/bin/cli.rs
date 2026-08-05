@@ -12,16 +12,31 @@ use pq_eddsa::{
     config::{Challenger, DEFAULT_SECURITY_BITS, ProofConfig},
 };
 
+/// Help text differs by build, because the soundness claim does. Interpolating the
+/// constant is not possible in a `#[command]` attribute, so the two are written out.
+#[cfg(not(feature = "wide"))]
+const LONG_ABOUT: &str = "Prove EdDSA key ownership from a seed, in zero knowledge.\n\n\
+    UNAUDITED RESEARCH PROOF OF CONCEPT. Carries 96-bit classical soundness and ~48-bit \
+    quantum, below the ~128 you should want in production, and its zero-knowledge \
+    property has not been audited. Use throwaway keys only.\n\n\
+    --seed puts the key on the command line, where your shell records it in history. \
+    Prefer --seed-file, or `--seed-file -` to read it from stdin.";
+
+#[cfg(feature = "wide")]
+const LONG_ABOUT: &str = "Prove EdDSA key ownership from a seed, in zero knowledge.\n\n\
+    UNAUDITED RESEARCH PROOF OF CONCEPT, built with --features wide: GF(2^256) \
+    challenges and SHA-512 commitments, from an unmerged fork of Binius64. The query \
+    target defaults to 256, but logUp* binds at 2^-240, so the achieved level is ~240 \
+    classical and ~120 quantum. That figure rests on unaudited work; the narrow build \
+    rests on a constant in upstream. Use throwaway keys only.\n\n\
+    --seed puts the key on the command line, where your shell records it in history. \
+    Prefer --seed-file, or `--seed-file -` to read it from stdin.";
+
 #[derive(Parser)]
 #[command(
     name = "pq-eddsa",
     about = "Prove EdDSA key ownership from a seed, in zero knowledge",
-    long_about = "Prove EdDSA key ownership from a seed, in zero knowledge.\n\n\
-        UNAUDITED RESEARCH PROOF OF CONCEPT. Carries 96-bit classical soundness, below \
-        the ~128 bits you should want in production, and its zero-knowledge property has \
-        not been audited. Use throwaway keys only.\n\n\
-        --seed puts the key on the command line, where your shell records it in history. \
-        Prefer --seed-file, or `--seed-file -` to read it from stdin."
+    long_about = LONG_ABOUT
 )]
 struct Cli {
     #[command(subcommand)]
