@@ -398,14 +398,24 @@ much they matter for the paper's actual use case.
 
 **Blocked on upstream Binius64:**
 
-- **Soundness above 96 bits.** `SECURITY_BITS` is fixed and `ZKVerifier::setup` takes no
-  override, and the narrow field caps the achievable level at 112 regardless. Getting to a
-  level worth calling post-quantum needs a wider challenge field, GF(2^256) with SHA-512,
-  which the last row of the [soundness table](#soundness) sizes at ~240 classical. This is
-  the single most important gap and nothing in this repository can close it.
+- **Soundness above 96 bits, upstream.** `SECURITY_BITS` is fixed and
+  `ZKVerifier::setup` takes no override, and the narrow field caps the achievable level at
+  112 regardless. Reaching a level worth calling post-quantum needs a wider challenge
+  field.
+
+  **This branch has done it, against an unmerged fork.** `--features wide` selects
+  GF(2^256) challenges with SHA-512 and delivers **~240 bits classical, ~120 quantum**,
+  measured, with every test passing under both configurations. On `R_det` it proves in
+  502 ms and verifies in 218 ms against a 2.4 MB proof: 3.1x the narrow prove time, and
+  still 10.7x faster than PQChain with roughly twice its soundness.
+
+  What remains blocked is the part that matters most. 96 bits is checkable in one grep of
+  upstream; ~240 rests on unreviewed work by the same person claiming it. Until that fork
+  is merged and reviewed, the stronger number is the weaker claim.
 - **A settable ZK blinding parameter.** `n_dummy_constraints` is hardcoded to 2 with a
-  `TODO` where its derivation should be. I measured that 2,048 would be free here, but
-  there is no way to ask for it.
+  `TODO` where its derivation should be. I measured that 2,048 would be free on the narrow
+  build, but there is no way to ask for it — and the wide build raises the FRI query count
+  from 232 to 579, which eats the same budget, so that ceiling is not known to hold there.
 
 **Mine to do:**
 

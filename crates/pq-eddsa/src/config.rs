@@ -45,6 +45,7 @@ mod cfg {
     pub type Challenger = binius_verifier::config::StdChallenger;
     /// The query target this configuration can actually reach. Past it, logUp\* binds.
     pub const DEFAULT_SECURITY_BITS: usize = binius_verifier::SECURITY_BITS;
+    pub const IS_WIDE: bool = false;
 }
 
 #[cfg(feature = "wide")]
@@ -69,10 +70,18 @@ mod cfg {
     /// What the fork defaults to. Kept so the gap is documented rather than silently
     /// diverged from.
     pub const FORK_DEFAULT_SECURITY_BITS: usize = binius_verifier::SECURITY_BITS_WIDE;
+    pub const IS_WIDE: bool = true;
 }
 
 #[cfg(feature = "wide")]
 pub use cfg::FORK_DEFAULT_SECURITY_BITS;
+/// Which configuration this build selected.
+///
+/// The single source of truth. A dependent crate asking `cfg!(feature = "wide")` about
+/// itself keeps a second copy that can disagree: enabling `pq-eddsa/wide` without the
+/// dependent's own forwarding feature compiles a wide library under a crate that believes
+/// it is narrow, and anything it reports about soundness is then wrong.
+pub use cfg::IS_WIDE;
 pub use cfg::{Challenger, DEFAULT_SECURITY_BITS, Field, Packed, Suite};
 
 pub type Verifier = ZKVerifier<Field, Suite>;
@@ -95,6 +104,20 @@ pub const UPSTREAM_SECURITY_BITS: usize = 96;
 /// This does **not** establish that 2 is insufficient or 2,048 sufficient. Zero-knowledge
 /// is a simulation property and the claim here remains unaudited. The value is set high
 /// because it is free, not because it was derived.
+///
+/// **Measured on the narrow build only, and probably wrong for wide.** The cliff is set by
+/// the outer Spartan system crossing a padding boundary, and its blinding budget is
+/// `n_dummy_wires + 3 * n_dummy_constraints` where `n_dummy_wires` tracks the FRI query
+/// count. That count follows the query target: 232 queries at 96 bits, 579 at 240. If the
+/// boundary itself is unchanged, wide's extra 347 wires consume about 116 of the
+/// constraint headroom and the ceiling lands near 2,017 — below this recommendation by
+/// roughly 31.
+///
+/// That is a derivation, not a measurement, and this repository's own rule is that a
+/// derived padding boundary is a hypothesis until measured. Two predictions of exactly
+/// this kind have already been wrong here. Re-measuring needs an environment override for
+/// `n_dummy_constraints` that neither upstream nor the fork exposes, so it is recorded
+/// rather than resolved.
 ///
 /// Not currently applied: upstream exposes no override. Recorded so it can be, and so a
 /// future upstream change has a documented target.

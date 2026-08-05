@@ -276,9 +276,14 @@ pub fn default_security_bits() -> usize {
 }
 
 /// Whether this build uses the fork's wide `GF(2^256)` path.
+///
+/// Read from `pq_eddsa::config`, not from this crate's own `cfg!`. The local feature is
+/// pure forwarding, so asking it is asking a copy: `--features pq-eddsa/wide` without
+/// this crate's `wide` compiles a wide library under a crate that thinks it is narrow,
+/// and the page would then advertise 96 bits while proving at 240.
 #[wasm_bindgen]
 pub fn is_wide_build() -> bool {
-    cfg!(feature = "wide")
+    pq_eddsa::config::IS_WIDE
 }
 
 /// The public key a seed yields, hex — without proving anything. Lets the page show the
@@ -393,15 +398,14 @@ mod tests {
     fn the_build_is_the_configuration_it_claims() {
         let s = Session::new(Relation::Det, 1).expect("setup");
         let p = s.prove(&SEED, &[0u8; 32]).expect("prove");
-        let (lo, hi, label) = if cfg!(feature = "wide") {
+        let (lo, hi, label) = if pq_eddsa::config::IS_WIDE {
             (2_000_000, 3_500_000, "wide")
         } else {
             (400_000, 800_000, "narrow")
         };
         assert!(
             (lo..=hi).contains(&p.bytes.len()),
-            "{label} build produced a {}-byte proof, outside {lo}..={hi} — \
-             the feature is probably not reaching pq_eddsa::config",
+            "{label} build produced a {}-byte proof, outside {lo}..={hi}",
             p.bytes.len()
         );
         assert_eq!(

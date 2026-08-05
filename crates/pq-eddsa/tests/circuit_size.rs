@@ -55,7 +55,10 @@ fn circuit_size_matches_the_blinding_measurement() {
 /// constant without re-measuring, this fails.
 #[test]
 fn recommended_blinding_is_inside_the_measured_cliff() {
-    /// Measured in the blinding work: 2,133 is free, 2,134 is not.
+    /// Measured in the blinding work on the **narrow** build: 2,133 is free, 2,134 is
+    /// not. The wide build raises the FRI query count from 232 to 579, which eats into the
+    /// same blinding budget, so this ceiling is not known to hold there. See
+    /// `config::RECOMMENDED_N_DUMMY_CONSTRAINTS`.
     ///
     /// Notably insensitive to circuit size: an 18% reduction in AND constraints and 15%
     /// in private wires moved this by exactly one. The cliff is set by the outer Spartan

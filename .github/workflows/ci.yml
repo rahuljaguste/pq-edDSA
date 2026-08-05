@@ -35,6 +35,25 @@ jobs:
       # measurements this repository publishes are release measurements.
       - run: cargo test --workspace --release
 
+  # SPIKE BRANCH. The wide configuration has to be tested, not merely built. This
+  # branch's history is a sequence of bugs where the wide path compiled cleanly and
+  # produced narrow results: a CLI defaulting to a 96-bit target on a 256-bit field, a
+  # stat subcommand reporting upstream's constant, a demo page hardcoding "96-bit", a
+  # harness calling ZKVerifier::setup directly and getting the narrow budget. Every one
+  # type-checked. Only running the tests catches them.
+  #
+  # Both features, deliberately. pq-eddsa/wide alone used to leave pq-eddsa-wasm
+  # believing it was narrow; that is fixed now by reading config::IS_WIDE, and naming
+  # both keeps the job honest if the forwarding ever changes.
+  test-wide:
+    name: test (release, wide)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace --release --features pq-eddsa/wide,pq-eddsa-wasm/wide
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -57,3 +76,6 @@ jobs:
       # Deliberately without -C target-feature=+simd128 -- that is the configuration the
       # demo ships, and the flag still fails upstream (binius-zk/binius64#1993).
       - run: cargo build --release --target wasm32-unknown-unknown -p pq-eddsa-wasm
+      # GF(2^256)/SHA-512 compiling to wasm32 was an open question until measured; keep
+      # it answered.
+      - run: cargo build --release --target wasm32-unknown-unknown -p pq-eddsa-wasm --features wide
