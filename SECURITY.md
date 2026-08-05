@@ -7,13 +7,21 @@ relation. Do not use it to secure anything of value.
 
 Two specific things you should know before trusting a proof from this code:
 
-- **96-bit classical soundness**, not the ~128 you should want. Upstream Binius64 fixes
-  `SECURITY_BITS = 96` and exposes no override, so this is not a configuration choice I
-  made: it is the ceiling available. See [Soundness](README.md#soundness).
+- **96-bit classical soundness by default**, not the ~128 you should want. Upstream
+  Binius64 fixes `SECURITY_BITS = 96` and exposes no override, so on a build against
+  upstream that is the ceiling available. See [Soundness](README.md#soundness).
+
+  This branch also offers `--features wide`, which selects a GF(2^256) challenge field
+  with SHA-512 from an unmerged fork and delivers ~240 bits classical and ~120 quantum,
+  measured. Prefer it only with your eyes open: 96 is a constant you can grep in upstream,
+  ~240 rests on unreviewed work by the same person claiming it. A stronger number from a
+  weaker source is not obviously the safer choice.
 - **The zero-knowledge property is unaudited.** Binius64's blinding parameter
   `n_dummy_constraints` is set to `2` upstream with a `// TODO` where its derivation
-  should be. I measured that raising it is free up to 2,133 for this circuit, which is
-  not the same as establishing that 2 is insufficient or 2,048 sufficient. Zero-knowledge
+  should be. I measured that raising it is free up to 2,133 for this circuit **on the
+  narrow build**, which is not the same as establishing that 2 is insufficient or 2,048
+  sufficient — and the wide build raises the FRI query count from 232 to 579, which draws
+  on the same blinding budget, so that ceiling is not known to hold there. Zero-knowledge
   is a simulation property and a real answer needs a simulator construction. The measured
   ceiling is pinned by `crates/pq-eddsa/tests/circuit_size.rs`, which fails if the circuit
   changes enough to move it.
