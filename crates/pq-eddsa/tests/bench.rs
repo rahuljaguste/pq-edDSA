@@ -19,7 +19,12 @@ const RUNS: usize = 30;
 #[test]
 #[ignore = "measurement; run with --ignored"]
 fn measure_full_circuit() {
-    run::<Sha256HashSuite>("SHA-256");
+    // The build's own suite, not a named one. Hardcoding `Sha256HashSuite` here would
+    // measure SHA-256 Merkle on a `GF(2^256)` field under `--features wide` -- a
+    // configuration the CLI never produces, so the headline numbers would not match what
+    // ships. The two tests below name suites deliberately, because varying the suite is
+    // what they are for.
+    run::<pq_eddsa::config::Suite>(pq_eddsa::config::SUITE_NAME);
 }
 
 #[test]

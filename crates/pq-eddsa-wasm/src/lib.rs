@@ -275,6 +275,15 @@ pub fn default_security_bits() -> usize {
     pq_eddsa::config::DEFAULT_SECURITY_BITS
 }
 
+/// What this build actually achieves, after the logUp\* cap.
+///
+/// Not the same as the requested target: asking for more than the field delivers is
+/// accepted silently, so a page reporting the target would overstate its own soundness.
+#[wasm_bindgen]
+pub fn achieved_security_bits() -> usize {
+    pq_eddsa::config::achieved_security_bits(pq_eddsa::config::DEFAULT_SECURITY_BITS)
+}
+
 /// Whether this build uses the fork's wide `GF(2^256)` path.
 ///
 /// Read from `pq_eddsa::config`, not from this crate's own `cfg!`. The local feature is

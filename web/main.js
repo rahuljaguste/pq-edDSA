@@ -4,7 +4,7 @@
 // wasm32-unknown-unknown, so `performance.now()` around the calls is the only honest
 // source. Every number the page displays was measured in this tab, on this machine.
 
-import init, { PqEddsa, derive_pk_hex, default_security_bits, is_wide_build }
+import init, { PqEddsa, derive_pk_hex, achieved_security_bits, is_wide_build }
   from './pkg/pq_eddsa_wasm.js';
 
 const $ = (id) => document.getElementById(id);
@@ -183,12 +183,10 @@ const paint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r,
 
 await init();
 
-// Asked, not asserted. Both the level and the quantum halving come from the build: a
-// figure written in here would claim 96 bits from a wide build, which is the mistake this
-// page, the CLI help and the stat subcommand each made once.
-const bits = default_security_bits();
-// logUp* binds below the requested target, so the achieved level is not the target.
-const achieved = is_wide_build() ? 240 : Math.min(bits, 112);
+// Asked, not asserted. The level and the logUp* cap it is clamped to both live in
+// config.rs, where the field is known; a number written here would be a third copy. This
+// page, the CLI help and the stat subcommand each hardcoded one once.
+const achieved = achieved_security_bits();
 const quantum = Math.round(achieved / 2); // square-root Grover on Fiat-Shamir search
 $('soundness').textContent = is_wide_build()
   ? `~${achieved}-bit classical and ~${quantum}-bit quantum soundness, from an unmerged, `

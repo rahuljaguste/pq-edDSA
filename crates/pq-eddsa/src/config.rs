@@ -42,6 +42,10 @@ mod cfg {
     /// soundness are identical either way. See `crates/ed25519/BOUNDS.md`; the conclusion
     /// is hardware-specific and worth re-measuring on x86-64 without SHA-NI.
     pub type Suite = binius_hash::sha256::Sha256HashSuite;
+    pub const SUITE_NAME: &str = "SHA-256";
+    /// Where logUp\* binds on this field: `2^16/|F|` with `|F| = 2^128`. No query budget
+    /// exceeds it, so the achieved level is `min(target, cap)` and never the target alone.
+    pub const LOGUP_CAP: usize = 112;
     pub type Challenger = binius_verifier::config::StdChallenger;
     /// 96, which is upstream's constant and **not** this field's ceiling: the narrow
     /// field reaches 112 before logUp\* binds, and 112 measured free in proving time for
@@ -59,6 +63,9 @@ mod cfg {
     pub type Field = binius_field::GhashSq256b;
     pub type Packed = binius_field::PackedGhashSq1x256b;
     pub type Suite = binius_hash::Sha512HashSuite;
+    pub const SUITE_NAME: &str = "SHA-512";
+    /// `2^16/|F|` with `|F| = 2^256`.
+    pub const LOGUP_CAP: usize = 240;
     pub type Challenger = binius_verifier::config::WideChallenger;
 
     /// 240, not the fork's `SECURITY_BITS_WIDE = 256`.
@@ -81,6 +88,18 @@ mod cfg {
 
 #[cfg(feature = "wide")]
 pub use cfg::FORK_DEFAULT_SECURITY_BITS;
+/// The soundness this build actually achieves, in bits.
+///
+/// `min(target, cap)`. Reporting the requested target instead overstates it whenever the
+/// target exceeds what the field can deliver, which is accepted silently.
+pub const fn achieved_security_bits(target: usize) -> usize {
+    if target < LOGUP_CAP {
+        target
+    } else {
+        LOGUP_CAP
+    }
+}
+
 /// Which configuration this build selected.
 ///
 /// The single source of truth. A dependent crate asking `cfg!(feature = "wide")` about
@@ -88,7 +107,7 @@ pub use cfg::FORK_DEFAULT_SECURITY_BITS;
 /// dependent's own forwarding feature compiles a wide library under a crate that believes
 /// it is narrow, and anything it reports about soundness is then wrong.
 pub use cfg::IS_WIDE;
-pub use cfg::{Challenger, DEFAULT_SECURITY_BITS, Field, Packed, Suite};
+pub use cfg::{Challenger, DEFAULT_SECURITY_BITS, Field, LOGUP_CAP, Packed, SUITE_NAME, Suite};
 
 pub type Verifier = ZKVerifier<Field, Suite>;
 pub type Prover = ZKProver<Packed, Suite>;
