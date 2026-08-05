@@ -137,6 +137,9 @@ where
     );
     println!();
     println!("PQChain (Ligetron, M4 Pro 12-core, ~128-bit soundness, avg of 100):");
-    println!("  prove 6200 ms | verify 2300 ms | proof 5.4 MB | 4,924,225 constraints");
+    // 5400, not the paper's 6200: where PQChain's README and the paper disagree, the
+    // figure more favourable to PQChain is the one quoted. The README says so; this line
+    // used to say otherwise.
+    println!("  prove 5400 ms | verify 2300 ms | proof 5.4 MB | 4,924,225 constraints");
     println!();
 }
