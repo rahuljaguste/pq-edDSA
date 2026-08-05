@@ -69,7 +69,7 @@ impl Session {
         let b = CircuitBuilder::new();
         let circuit = PqEddsaCircuit::build_with(&b, relation);
         let cs = b.build();
-        let (verifier, prover) = ProofConfig { log_inv_rate }
+        let (verifier, prover) = ProofConfig { log_inv_rate, ..Default::default() }
             .setup(cs.constraint_system().clone())
             .map_err(|e| e.to_string())?;
         Ok(Self {

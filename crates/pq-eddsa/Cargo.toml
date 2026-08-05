@@ -18,6 +18,9 @@ binius-prover.workspace = true
 binius-verifier.workspace = true
 binius-hash.workspace = true
 binius-utils = { git = "https://github.com/binius-zk/binius64", rev = "21f0ceeabfdd530c3c3508883caa436d8b0f15ab" }
+# Spike branch only: the fork genericised the verifier over the challenge field, so the
+# field type has to be named here.
+binius-field = { git = "https://github.com/binius-zk/binius64", rev = "21f0ceeabfdd530c3c3508883caa436d8b0f15ab" }
 digest = "0.11"
 clap = { version = "4", features = ["derive"], optional = true }
 rand = { version = "0.10.1", default-features = false, features = ["std", "std_rng"] }

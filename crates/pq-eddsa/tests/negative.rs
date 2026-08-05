@@ -144,7 +144,7 @@ fn proof_for_one_statement_does_not_verify_against_another() {
     cs.populate_wire_witness(&mut w).unwrap();
     let witness = w.into_value_vec();
 
-    let verifier = ZKVerifier::<Suite>::setup(cs.constraint_system().clone(), 1).unwrap();
+    let verifier = ZKVerifier::<binius_field::BinaryField128bGhash, Suite>::setup(cs.constraint_system().clone(), 1).unwrap();
     let prover = ZKProver::<OptimalPackedB128, Suite>::setup(&verifier).unwrap();
 
     let mut rng_seed = [0u8; 32];

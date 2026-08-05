@@ -12,6 +12,9 @@ binius-circuits.workspace = true
 num-bigint.workspace = true
 sha2 = "0.10"
 
+# Spike branch only: the fork genericised ZKVerifier over the challenge field.
+binius-field = { git = "https://github.com/binius-zk/binius64", rev = "21f0ceeabfdd530c3c3508883caa436d8b0f15ab" }
+
 [dev-dependencies]
 binius-prover.workspace = true
 binius-verifier.workspace = true

@@ -69,7 +69,7 @@ where
     verify_constraints(cs.constraint_system(), &witness).unwrap();
 
     let t_setup = std::time::Instant::now();
-    let verifier = ZKVerifier::<S>::setup(cs.constraint_system().clone(), 1).unwrap();
+    let verifier = ZKVerifier::<binius_field::BinaryField128bGhash, S>::setup(cs.constraint_system().clone(), 1).unwrap();
     let prover = ZKProver::<OptimalPackedB128, S>::setup(&verifier).unwrap();
     let setup_ms = t_setup.elapsed().as_millis();
 

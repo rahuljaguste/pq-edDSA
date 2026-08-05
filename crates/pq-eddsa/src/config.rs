@@ -13,6 +13,7 @@
 
 use anyhow::{Result, anyhow};
 use binius_core::constraint_system::ConstraintSystem;
+use binius_field::BinaryField128bGhash as B128;
 use binius_hash::sha256::Sha256HashSuite;
 use binius_prover::{OptimalPackedB128, zk_config::ZKProver};
 use binius_verifier::zk_config::ZKVerifier;
@@ -25,7 +26,10 @@ use binius_verifier::zk_config::ZKVerifier;
 /// hardware-specific and worth re-measuring on x86-64 without SHA-NI.
 pub type Suite = Sha256HashSuite;
 
-pub type Verifier = ZKVerifier<Suite>;
+/// The challenge field. `B128` is GF(2^128); the fork's wide path uses `GhashSq256b`.
+pub type Field = B128;
+
+pub type Verifier = ZKVerifier<Field, Suite>;
 pub type Prover = ZKProver<OptimalPackedB128, Suite>;
 
 /// Classical soundness in bits. Fixed by upstream; not currently configurable.
@@ -50,18 +54,25 @@ pub const RECOMMENDED_N_DUMMY_CONSTRAINTS: usize = 2048;
 pub struct ProofConfig {
     /// Log of the inverse Reed-Solomon rate. Trades proof size against proving time.
     pub log_inv_rate: usize,
+    /// FRI query-phase target, in bits.
+    ///
+    /// SPIKE BRANCH ONLY. Upstream hardcodes 96 and exposes no override; this is available
+    /// because the branch patches in a fork carrying `setup_with_security_bits`. On the
+    /// narrow field the useful ceiling is 112: past that the logUp\* term at `2^16/|F|`
+    /// binds instead, and a larger query budget buys nothing.
+    pub security_bits: usize,
 }
 
 impl Default for ProofConfig {
     fn default() -> Self {
-        Self { log_inv_rate: 1 }
+        Self { log_inv_rate: 1, security_bits: SECURITY_BITS }
     }
 }
 
 impl ProofConfig {
     /// Set up a verifier. Cheaper than [`Self::setup`] when proving is not needed.
     pub fn setup_verifier(&self, cs: ConstraintSystem) -> Result<Verifier> {
-        ZKVerifier::setup(cs, self.log_inv_rate)
+        ZKVerifier::setup_with_security_bits(cs, self.log_inv_rate, self.security_bits)
             .map_err(|e| anyhow!("verifier setup failed: {e:?}"))
     }
 
@@ -73,8 +84,10 @@ impl ProofConfig {
         Ok((verifier, prover))
     }
 
-    /// Soundness in bits, for reporting alongside any measurement.
+    /// The query-phase target this config was built with, for reporting alongside any
+    /// measurement. Not the same as the achieved soundness: on the narrow field the
+    /// logUp\* term caps the whole system at 112 regardless of what is requested here.
     pub const fn security_bits(&self) -> usize {
-        SECURITY_BITS
+        self.security_bits
     }
 }

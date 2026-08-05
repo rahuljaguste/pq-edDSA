@@ -72,6 +72,9 @@ enum Cmd {
         out: Option<String>,
         #[arg(long, default_value_t = 1)]
         log_inv_rate: usize,
+        /// FRI query-phase target in bits. Spike branch only; upstream hardcodes 96.
+        #[arg(long, default_value_t = pq_eddsa::config::SECURITY_BITS)]
+        security_bits: usize,
         /// Relation to prove. `rand` randomises hx with a fresh secret, which is what
         /// the paper's security proof requires; `det` matches PQChain.
         #[arg(long, value_enum, default_value = "det")]
@@ -89,6 +92,9 @@ enum Cmd {
         hx: String,
         #[arg(long, default_value_t = 1)]
         log_inv_rate: usize,
+        /// Must match what the proof was produced under.
+        #[arg(long, default_value_t = pq_eddsa::config::SECURITY_BITS)]
+        security_bits: usize,
         /// Must match the relation the proof was produced under.
         #[arg(long, value_enum, default_value = "det")]
         relation: RelationArg,
@@ -142,7 +148,7 @@ fn main() -> Result<()> {
             println!("AND constraints:  {}", s.n_and_constraints());
             println!("IMUL constraints: {}", s.imul_constraints.len());
             println!("private wires:    {}", s.n_private);
-            println!("soundness:        {SECURITY_BITS} bits classical");
+            println!("soundness:        {SECURITY_BITS} bits classical (default target)");
             println!("relation:         {:?}", Relation::from(relation));
         }
 
@@ -152,6 +158,7 @@ fn main() -> Result<()> {
             msg,
             out,
             log_inv_rate,
+            security_bits,
             relation,
         } => {
             let seed: [u8; 32] = parse_hex(&read_seed(seed, seed_file)?, "seed")?;
@@ -177,7 +184,7 @@ fn main() -> Result<()> {
                 .map_err(|e| anyhow::anyhow!("witness population failed: {e:?}"))?;
             let witness = w.into_value_vec();
 
-            let cfg = ProofConfig { log_inv_rate };
+            let cfg = ProofConfig { log_inv_rate, security_bits };
             let (_verifier, prover) = cfg.setup(cs.constraint_system().clone())?;
 
             let mut rng_seed = [0u8; 32];
@@ -190,7 +197,7 @@ fn main() -> Result<()> {
                 .map_err(|e| anyhow::anyhow!("prove: {e:?}"))?;
             let proof = tr.finalize();
             eprintln!(
-                "proved in {} ms, {} bytes, {SECURITY_BITS}-bit soundness",
+                "proved in {} ms, {} bytes, {security_bits}-bit query target",
                 t.elapsed().as_millis(),
                 proof.len()
             );
@@ -210,6 +217,7 @@ fn main() -> Result<()> {
             msg,
             hx,
             log_inv_rate,
+            security_bits,
             relation,
         } => {
             let pi = PublicInputs {
@@ -231,7 +239,7 @@ fn main() -> Result<()> {
             // statement be accepted as a proof of this one.
             let public = public_words(&cs, &circuit, &pi);
 
-            let cfg = ProofConfig { log_inv_rate };
+            let cfg = ProofConfig { log_inv_rate, security_bits };
             let verifier = cfg.setup_verifier(cs.constraint_system().clone())?;
             let mut vt = VerifierTranscript::new(StdChallenger::default(), proof);
             let t = std::time::Instant::now();
