@@ -4,8 +4,8 @@ Ed25519's coordinate field is `F_p` with `p = 2^255 - 19`. This crate performs c
 arithmetic modulo `2p = 2^256 - 38` instead. This document is the argument that doing so is
 correct, in a form an auditor can check without reading the circuit code.
 
-The load-bearing claim is that a mistake here is **silent** — it produces wrong values, not
-a crash — so the reasoning is written out rather than left implicit.
+The load-bearing claim is that a mistake here is **silent**: it produces wrong values instead of
+a crash, so the reasoning is written out here instead of left implicit.
 
 ## Why not `p` directly
 
@@ -57,7 +57,7 @@ This is maintained by the library, not assumed of callers:
   past the top limb is a single carry bit. It conditionally subtracts the modulus, landing
   back in `[0, 2p)`.
 - `sub(x, y)` is implemented upstream as `add(x, modulus - y)` (`prime_field.rs:81-87`),
-  which lands in `[0, 2p)` as well — but see the caveat below.
+  which lands in `[0, 2p)` as well, but see the caveat below.
 
 ### Caveat: `sub` momentarily violates `add`'s precondition
 
@@ -67,7 +67,7 @@ below the modulus. The result is still correct, but for a subtler reason than th
 precondition:
 
 - `sum = x + 2p` where `x < 2p`, so `sum < 4p` and the overflow past `2^256` is still a
-  single bit — the carry-width assumption survives.
+  single bit; the carry-width assumption survives.
 - That carry is set exactly when `x >= 38`, since `2p = 2^256 - 38`.
 - The final step is a *wrapping* subtraction, and upstream's own comment covers this case:
   "with one [carry] it borrows out by exactly the `2^(64 * l)` the carry stands for."
@@ -75,13 +75,13 @@ precondition:
 So correctness rests on the carry and the wrap cancelling, not on the documented
 precondition. That is a fragile-looking argument to leave implicit, so
 `sub_edge_cases_around_zero_and_modulus` in `field.rs` pins it with explicit cases on both
-sides of the `x = 38` boundary — values a random property test would essentially never
+sides of the `x = 38` boundary: values a random property test would essentially never
 generate.
 
 ### Product bound
 
 Inputs are below `2p < 2^256`, so a product is below `4p^2 < 2^512` and occupies at most
-eight 64-bit limbs — exactly what `textbook_mul` on 4-limb inputs produces, and what the
+eight 64-bit limbs, exactly what `textbook_mul` on 4-limb inputs produces, and what the
 8-limb reduction consumes. The quotient is below `2^512 / 2^256 = 2^256`, four limbs, the
 same shape as the secp256k1 case.
 
@@ -102,23 +102,23 @@ The complete list for this crate:
 4. **Zero tests** (`is_zero_mod_p`). Both `0` and `p` represent zero.
 
 **Nowhere else.** In particular, complete twisted-Edwards addition contains no equality
-tests and no branches — that is what "complete" means — so the scalar multiplication inner
+tests and no branches, which is what "complete" means, so the scalar multiplication inner
 loop needs no canonicalisation at all. This is why the redundancy costs almost nothing:
 roughly two canonicalisations in the whole circuit, at ~10–20 AND each.
 
 ## What must never be called
 
 `PseudoMersennePrimeField::inverse` (`prime_field.rs:131`) and `::div` (`prime_field.rs:166`)
-both document prime-modulus formulas — they compute `x^(m-2) mod m`, which inverts only
+both document prime-modulus formulas: they compute `x^(m-2) mod m`, which inverts only
 when `m` is prime. `2p` is not prime. Neither is re-exposed through `Fp`, and neither is
 used: the single inversion the circuit needs (`Z^-1` for extended→affine) is done as a hint
 plus a multiplication check, which is the better construction anyway.
 
 ## Test coverage of this argument
 
-`field.rs` property tests draw representatives uniformly from all of `[0, 2p)` —
+`field.rs` property tests draw representatives uniformly from all of `[0, 2p)`,
 **deliberately including the upper half** that a naive implementation never produces during
-testing but an adversarial witness can supply — and assert that `add`, `sub`, and `mul`
+testing but an adversarial witness can supply, and assert that `add`, `sub`, and `mul`
 agree with a `num-bigint` reference computed mod `p`.
 
 The suite was mutation-tested: disabling `canonicalize` fails 5 of the 12 tests. A suite
@@ -138,15 +138,15 @@ estimate. Reproduce with `cargo test -p ed25519-binius --release -- --nocapture`
 | `Point::add_niels` (7 field mults) | **827** | **168** | `point::cost::report_add_niels_cost` |
 | × 64 comb windows | 52,928 | 10,752 | |
 
-The per-addition figure is a *marginal* cost — measured as the difference between chains of
+The per-addition figure is a *marginal* cost, measured as the difference between chains of
 one and two additions, so fixed setup cancels.
 
 ## Against the design spec's projection
 
 The spec projected ~53,800 AND and ~7,200 IMUL for the 64 additions.
 
-- **AND: 52,928 measured vs 53,800 projected — within 2%.**
-- **IMUL: 10,752 measured vs 7,200 projected — 49% over.**
+- **AND: 52,928 measured vs 53,800 projected, within 2%.**
+- **IMUL: 10,752 measured vs 7,200 projected, 49% over.**
 
 The IMUL gap comes from assuming 16 IMUL per field multiplication (a 4×4 `textbook_mul`).
 The true figure is 24: the product costs 16, and the pseudo-Mersenne reduction adds a
@@ -185,7 +185,7 @@ constraints and still proves ~6% faster, because:
 
 - IMUL costs far more per constraint than AND. On the `ec_msm` reference, the IntMul phase
   was ~50% of proving time for 15,236 constraints while the BitAnd phase was ~11% for
-  110,426 — roughly a 30× per-constraint difference.
+  110,426, roughly a 30× per-constraint difference.
 - Both counts are padded to a power of two, so what matters is which side of a boundary
   you land on, not the raw count. `w = 6` is the largest window whose IMUL count fits in
   2^13.
@@ -203,7 +203,7 @@ this as settled on other hardware.
 
 ### Effect in the full circuit
 
-The scalar multiplication is not the whole circuit — two SHA-512 blocks and compression
+The scalar multiplication is not the whole circuit: two SHA-512 blocks and compression
 add roughly 4,000 more AND. That pushes `w = 4` and `w = 5` from 2^16 into 2^17, where
 `w = 6` already sits, so the AND-count advantage those windows held disappears while
 `w = 6` keeps its IMUL padding advantage. The choice should therefore hold or improve at
@@ -222,13 +222,13 @@ multiplications at 24 IMUL each accounts for the 48.
 
 Avoiding the in-circuit inversion is what makes this cheap. A modular exponentiation would
 have cost hundreds of multiplications; the hint-plus-check costs two. The constraint that
-began as a workaround for the composite modulus — `PseudoMersennePrimeField::inverse`
-being unusable mod `2p` — is simply the better construction.
+began as a workaround for the composite modulus, `PseudoMersennePrimeField::inverse`
+being unusable mod `2p`, is simply the better construction.
 
 ### The canonicality assertion is load-bearing, not defensive
 
 `x_aff < p` and `y_aff < p` are the only things stopping a prover from supplying `x + p`.
-That value satisfies both residue checks, since it is the same residue — but it has the
+That value satisfies both residue checks, since it is the same residue, but it has the
 opposite low bit, and the low bit of `x` is exactly what RFC 8032 compression encodes as
 the sign. Without the assertion a prover could choose the compressed public key's sign bit
 freely.
@@ -242,7 +242,7 @@ and `y_aff` separately.
 constraints alongside `to_affine` rather than calling it, so it verified the *pattern*
 while leaving the *deployment* uncovered: the entire suite passed with the canonicality
 assertion deleted from `to_affine` itself. `to_affine_with_hint` now exists so the test
-drives the real function with only the hint swapped. Verified by mutation — deleting
+drives the real function with only the hint swapped. Verified by mutation: deleting
 either assertion is caught.
 
 The general shape of the error is worth remembering: a negative test that reconstructs the
@@ -250,7 +250,7 @@ logic it is checking proves only that the logic *can* work, not that it *is* wir
 
 ## Does Rayon help?
 
-**No — ~1% at this circuit size, within noise.** Measured on the full `R_det` circuit,
+**No. ~1% at this circuit size, within noise.** Measured on the full `R_det` circuit,
 M1 Pro (6 performance + 2 efficiency cores), direct test binary, three runs each:
 
 | build | run 1 | run 2 | run 3 |
@@ -258,7 +258,7 @@ M1 Pro (6 performance + 2 efficiency cores), direct test binary, three runs each
 | single-threaded | 78.9 ms | 83.6 ms | 81.4 ms |
 | `--features rayon` | 79.9 ms | 79.7 ms | 79.8 ms |
 
-Rayon *is* wired correctly — the `rayon` crate enters the dependency graph only when the
+Rayon *is* wired correctly: the `rayon` crate enters the dependency graph only when the
 feature is on, confirmed with `cargo tree`. It simply has nothing to work with: at 70,252
 AND and 7,260 IMUL this circuit is small by binius64's standards, and the prover is
 latency-bound rather than throughput-bound. Thread coordination cancels the gains.
@@ -275,7 +275,7 @@ where it presumably does. The claim above is scoped to this circuit.
 Earlier figures of 119.6 ms proving were taken while other `cargo` processes were running.
 Run on a quiescent machine the same code measures **80.0 ms**. Benchmarks must run from
 the test binary directly on an otherwise idle machine, not under `cargo test` alongside
-other work — a 50% error is more than enough to invalidate a comparison.
+other work, and a 50% error is more than enough to invalidate a comparison.
 
 ## Merkle hash suite: SHA-256 or Blake3?
 
@@ -299,17 +299,17 @@ should be re-measured on x86-64 without SHA-NI before being treated as general.
 
 Note the *in-circuit* hash is not a choice: RFC 8032 mandates SHA-512 for `sk = H(seed)`,
 so the blake2b and blake3 gadgets in `binius-circuits` cannot substitute without changing
-the relation being proved. binius-hash also offers no blake2b Merkle suite — the options
+the relation being proved. binius-hash also offers no blake2b Merkle suite, so the options
 are SHA-256 and Blake3 only.
 
-## Benchmarking requires an idle machine — absolute figures are provisional
+## Benchmarking requires an idle machine: absolute figures are provisional
 
 The same binary measured **80 ms** and **121 ms** for proving on the same machine on the
 same day. The difference is system load: the second was taken at load average 8.15 on an
 8-core host.
 
 **No absolute timing in this repository should be published until it is re-measured on a
-quiescent machine.** The relative results above are sound — Blake3 against SHA-256, and
+quiescent machine.** The relative results above are sound. Blake3 against SHA-256, and
 rayon against single-threaded, were each taken back-to-back under identical conditions,
 and the Blake3 comparison additionally survives order reversal. Ratios against PQChain do
 not have that protection and must be re-derived.
@@ -317,7 +317,7 @@ not have that protection and must be re-derived.
 ## Signed-digit comb recoding
 
 Digits are recoded in-circuit to `[-2^(w-1), 2^(w-1)-1]`, so each table holds `|d|` only:
-`2^(w-1)+1` entries instead of `2^w` — 33 rather than 64 at `w = 6`. Negative digits reuse
+`2^(w-1)+1` entries instead of `2^w`: 33 rather than 64 at `w = 6`. Negative digits reuse
 the entry with a conditional negation, which in niels form `(y+x, y-x, 2dxy)` is a swap of
 the first two coordinates and a negation of the third.
 
@@ -339,16 +339,16 @@ against IntMul's ~50%. Halving an 11% term caps the win near 5%, which is what t
 measurement shows. Proof size is essentially unchanged.
 
 Worth stating plainly because the tier crossing invites a larger expectation than the
-profile supports. The optimisation is still worth keeping — strictly smaller circuit,
+profile supports. The optimisation is still worth keeping: strictly smaller circuit,
 fewer wires, no correctness cost, all differential tests still passing against
-`curve25519-dalek` at `w = 3, 4, 5, 6` — but the lever that matters for proving time is
+`curve25519-dalek` at `w = 3, 4, 5, 6`, but the lever that matters for proving time is
 IMUL, not AND.
 
 ### Why the recoding is in-circuit
 
 It cannot be done host-side and supplied as a hint. The digits must be a verified function
 of the committed scalar, and constraining a hinted recomposition
-(`Σ dᵢ·(2^w)^i == scalar`) would cost a full-width bignum computation — more than the
+(`Σ dᵢ·(2^w)^i == scalar`) would cost a full-width bignum computation, more than the
 multiplexer saves. In-circuit it is word arithmetic on values below `2^w`: an add, a
 comparison, a conditional subtract and a select per window, a few constraints each.
 
@@ -381,29 +381,29 @@ padded size:
 
 Even an impossible zero-cost modular reduction stays in 2^13. The only configuration that
 drops a tier is `w = 11`, where the table is `2^10 + 1 = 1,025` entries and the multiplexer
-cost is prohibitive — it would trade a 2^13→2^12 IMUL saving for an AND increase far larger
+cost is prohibitive: it would trade a 2^13→2^12 IMUL saving for an AND increase far larger
 than the 2^16→2^17 crossing it would also cause.
 
 **Specific options assessed and rejected:**
 
 - **Karatsuba at 4 limbs.** `optimal_mul` picks textbook below `KARATSUBA_LIMBS_THRESHOLD =
-  8` limbs. Calling `karatsuba_mul` directly would give 12 IMUL instead of 16 — but at the
+  8` limbs. Calling `karatsuba_mul` directly would give 12 IMUL instead of 16, but at the
   cost of extra additions and carries in AND, for no tier change. Upstream's threshold looks
   right even under the AND-cheap cost model used here.
 - **Lazy reduction** (defer reduction across the formula). Does not apply here: in the HWCD
   mixed addition the three initial products feed additions that immediately feed four more
-  products, so unreduced 8-limb intermediates would make those products 8×8 = 64 IMUL —
+  products, so unreduced 8-limb intermediates would make those products 8×8 = 64 IMUL,
   far worse than the 8 IMUL saved per reduction.
 - **Fewer multiplications per addition.** 7M is optimal for extended-coordinate mixed
   addition with `a = -1`; there is no 6M variant.
 - **Skipping the final `T`.** `T` is only consumed by the next addition, so the last window
-  could omit it — one multiplication out of 310, ~0.3%.
+  could omit it: one multiplication out of 310, ~0.3%.
 
 **Conclusion.** IMUL is at its practical floor for this construction. The window sweep
 already picks the best point (`w = 6`), and it does so *because* of the tier: `w = 7` has
 14% fewer IMUL, lands in the same tier, and proves slower on the AND increase alone.
 
 Reducing proving time further would need a change of approach rather than a change of
-parameter — a smaller field representation, a different reduction strategy inside
+parameter: a smaller field representation, a different reduction strategy inside
 binius64's `bignum`, or a proof system whose multiply constraint is cheaper relative to its
 AND constraint.

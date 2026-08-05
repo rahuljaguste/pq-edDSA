@@ -2,7 +2,7 @@
 
 Contributions are welcome. [What is missing](README.md#what-is-missing) lists the open
 gaps and, just as usefully, the things that were investigated and turned out to be dead
-ends — read that before starting on performance work.
+ends. Read that before starting on performance work.
 
 ## Before opening a pull request
 
@@ -24,8 +24,8 @@ These four are what the repository is actually built around. Each exists because
 something real.
 
 **A negative test must be mutation-verified.** Delete the assertion it guards and confirm
-the test fails. An under-constrained circuit passes every positive test — it proves true
-statements correctly and false ones too — so positive tests establish almost nothing about
+the test fails. An under-constrained circuit passes every positive test: it proves true
+statements correctly and false ones too, so positive tests establish almost nothing about
 soundness. This convention caught a canonicality assertion in `to_affine` with *no*
 deployed coverage: the whole suite passed with it removed, because the test had rebuilt
 the logic alongside the function instead of calling it.
@@ -37,7 +37,7 @@ of two. If you add a figure, add the test that produces it.
 
 **Measure padding boundaries; do not derive them.** Constraint counts pad to powers of two,
 which makes optimisation discontinuous and intuition unreliable. Two predictions here were
-wrong: the comb window (predicted 4, measured 6 — ranking by AND count picks the wrong
+wrong: the comb window (predicted 4, measured 6, because ranking by AND count picks the wrong
 one) and the ZK blinding ceiling (predicted ~12,000, measured ~2,132). Treat a derived
 boundary as a hypothesis.
 
@@ -64,14 +64,14 @@ canonicalisation.
 ## Circuit shape must not depend on the witness
 
 The constraint graph is fixed before any witness exists, so a secret-dependent shape is not
-expressible — but a host-side helper can still leak by branching on a secret. PQChain
+expressible. But a host-side helper can still leak by branching on a secret. PQChain
 shipped a bug of exactly this class. Tests assert shape invariance; keep them passing.
 
 ## Dependencies
 
 Binius64 is pinned to a git revision in the workspace `Cargo.toml`, and `Cargo.lock` is
 committed deliberately: the published benchmarks only reproduce if the whole graph is
-pinned. Bumping the revision is a real change — re-run the benchmarks and update the
+pinned. Bumping the revision is a real change: re-run the benchmarks and update the
 figures in the same pull request.
 
 If you find a bug in Binius64 itself, upstream it. I did once already, and the README says
@@ -80,6 +80,6 @@ what came of it.
 ## Scope
 
 This is an unaudited proof of concept and is not trying to become a product. Changes that
-make it a better *measurement* — clearer, more reproducible, better covered — are easier to
-land than changes that add surface area. See [SECURITY.md](SECURITY.md) for what has and
+make it a better *measurement*, meaning clearer or more reproducible or better covered,
+are easier to land than changes that add surface area. See [SECURITY.md](SECURITY.md) for what has and
 has not been checked.

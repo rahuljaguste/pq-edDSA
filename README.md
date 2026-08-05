@@ -18,7 +18,7 @@ over 64-bit machine words instead of emulating a foreign field.
 
 So the question here is theirs: what does a proving system without that requirement give you
 on this relation? The numbers below measure it, and they are a property of the two proving
-systems rather than of the two implementations.
+systems, not of the two implementations.
 
 > **Research artifact.** Not audited, not production-ready. The zero-knowledge claim in
 > particular is unaudited; see [Soundness](#soundness). Do not use this to secure real
@@ -306,7 +306,7 @@ open http://localhost:8742/
 Paste or generate a seed, click prove, watch it verify, then click *Verify against a
 tampered statement* to watch it refuse. Nothing is transmitted: the page is static files
 with no server component, and after the module loads it issues no network requests at all,
-which is checkable in DevTools rather than merely asserted here.
+which you can check in DevTools instead of taking on trust.
 
 Measured in Chrome 150 on the same M1 Pro, single-threaded, cold profile with caching
 disabled, two independent browsers per relation:
@@ -483,7 +483,7 @@ much they matter for the paper's actual use case.
 
 - **Multi-core browser proving.** `SharedArrayBuffer` with COOP/COEP headers is real work,
   and it would buy approximately nothing: rayon measures within noise on a circuit this
-  small even natively, because the prover is latency-bound rather than throughput-bound at
+  small even natively, because the prover is latency-bound instead of throughput-bound at
   57K AND constraints. Measured in [`crates/ed25519/BOUNDS.md`](crates/ed25519/BOUNDS.md).
 - **`+simd128` for the browser build.** Worth 0.7%, measured, and it needs a fix that is
   still open upstream. WebAssembly has no carry-less multiply for the module to reach.
