@@ -62,20 +62,29 @@ can test candidates offline. Harmless at full entropy, fatal for a guessable see
 
 ## Results
 
-| | PQ-EdDSA | PQChain (Ligetron) | ratio |
+| | PQ-EdDSA | PQ-EdDSA `--features wide` | PQChain (Ligetron) |
 |---|---|---|---|
-| constraints | **64,742** (57,314 AND + 7,428 IMUL) | 4,924,225 | **76× fewer** |
-| prove | **113.9 ms** | 5,400 ms | **47× faster** |
-| verify | **47.5 ms** | 2,300 ms | **48× faster** |
-| proof size | **515 KiB** | 5.4 MB | **10.5× smaller** |
-| **peak memory** | **~280 MB** | **34 MB** | **8× more, this is worse** |
-| host | Apple M1 Pro, 8 cores | Apple M4 Pro, 12 cores | *this is slower silicon* |
-| **soundness, classical** | **96-bit** | **~128-bit** | **this is weaker** |
-| **soundness, quantum** | **~48-bit** | **~64-bit** | **this is weaker** |
+| constraints | **64,742** (57,314 AND + 7,428 IMUL) | **64,742** | 4,924,225 |
+| prove | **113.9 ms** | **475 ms** | 5,400 ms |
+| verify | **47.5 ms** | **215 ms** | 2,300 ms |
+| proof size | **515 KiB** | **2,447 KiB** | 5.4 MB |
+| peak memory | ~280 MB | ~670 MB | **34 MB** |
+| soundness, classical | 96-bit | **~240-bit** | ~128-bit |
+| soundness, quantum | ~48-bit | **~120-bit** | ~64-bit |
+| host | M1 Pro, 8 cores | M1 Pro, 8 cores | M4 Pro, 12 cores |
 
-The last four rows matter. Slower hardware understates the gap; worse memory and soundness
-overstate it. Quantum is the row a post-quantum readiness artifact should be judged on, and
-it is the row where this does worst.
+The circuit is the same either way; only the proving system's field changes. Narrow beats
+PQChain on every row but memory and soundness. Wide takes soundness too, and is still
+**11.4× faster with a 2.2× smaller proof** than PQChain.
+
+Wide costs **2.99× the prove time and 4.75× the proof** of narrow. That is measured
+like-for-like, both on the fork. The two columns above look further apart than that because
+the narrow one is measured against upstream, and **the fork carries a ~30% regression on the
+narrow path** — 125 ms upstream against 159 ms on the fork at the same 96-bit target. A
+repaired fork would make the wide column faster, not slower.
+
+**Memory is the row where this loses**: 8× worse than PQChain narrow, 20× wide, and nothing
+here is tuned for it.
 
 Mine: 30 runs, first discarded, single-threaded, `log_inv_rate = 1`, **system load ~6 on 8
 cores**, not a quiescent machine, so these are conservative. Theirs: from
@@ -105,9 +114,8 @@ Wide costs **2.99× prove and 4.75× proof size** for **2.5× the bits**, classi
 quantum. Against PQChain's ~64 quantum: narrow is below at ~48, wide roughly double at
 ~120. Proof sizes are byte-identical between native and browser.
 
-**Not comparable with the table above.** Every row carries a **~30%** narrow-path
-regression in the fork: at the same 96-bit target upstream proves in 125 ms, the fork in
-159 ms. Compare these four with each other, never with `main`.
+All four carry the fork's ~30% narrow-path regression described above, so compare them with
+each other and not with `main`.
 
 ## Soundness
 
@@ -145,8 +153,9 @@ already is.
 ```
 
 Chrome 150, cold profile, caching disabled: **1,763 ms** prove, **245 ms** verify, 515 KiB,
-**212 MB** peak heap; wide is 6,059 ms and 604 MB. That is **11×** native, because
-WebAssembly has no carry-less multiply and GF(2^128) multiplication falls back to software. `pk`, `hx` and proof size match the
+**212 MB** peak heap; wide is 6,059 ms and 604 MB. That is **11.1× native for narrow and
+12.8× for wide**, because WebAssembly has no carry-less multiply, so multiplication in the
+challenge field falls back to software. `pk`, `hx` and proof size match the
 native CLI byte for byte. The page is static files and issues no network requests after
 load, which you can check in DevTools.
 
