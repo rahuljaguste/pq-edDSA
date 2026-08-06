@@ -43,11 +43,25 @@ fn measure_hash_suites_reversed() {
     run::<Sha256HashSuite>("SHA-256");
 }
 
+/// Refuse to report timings from a debug build.
+///
+/// Nothing else catches this. A debug run produces the same proof, byte for byte, and
+/// prints its numbers in the same format, so the output looks like a measurement. It is
+/// about 92x slower: 14,563 ms against 159 ms for one `R_det` proof. Publishing that by
+/// accident would be worse than having no number.
+fn require_release() {
+    assert!(
+        !cfg!(debug_assertions),
+        "measurement run without --release; timings would be ~92x slow and meaningless"
+    );
+}
+
 fn run<S>(suite_name: &str)
 where
     S: binius_hash::binary_merkle_tree::HashSuite + Clone,
     digest::Output<S::LeafHash>: binius_utils::SerializeBytes + binius_utils::DeserializeBytes,
 {
+    require_release();
     let seed: [u8; 32] =
         hex::decode("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
             .unwrap()

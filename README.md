@@ -100,6 +100,10 @@ How these were measured:
 cargo test -p pq-eddsa --release --test bench -- --ignored --nocapture
 ```
 
+`--release` is not optional. A debug build produces the same proof byte for byte and
+prints the same format, but takes 14,563 ms against 159 ms. The harness refuses to run
+without it.
+
 PQChain reports that non-native field emulation and scalar multiplication are **~70%** of
 its constraints, SHA-512 another ~20%. Here SHA-512 costs **918 AND per compression block**
 and both hashes are single-block, so it is ~3% of the circuit. Removing the emulation
