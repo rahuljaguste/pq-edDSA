@@ -1,6 +1,6 @@
 //! The `security_bits` query target: what it changes, and what it does not.
 //!
-//! SPIKE BRANCH ONLY. Upstream hardcodes the target and exposes no override; these tests
+//! Upstream hardcodes the target and exposes no override; these tests
 //! exist because the branch patches in a fork carrying `setup_with_security_bits`.
 //!
 //! Without them the parameter has no coverage at all, which is how the `stat` subcommand
@@ -77,7 +77,7 @@ fn a_proof_does_not_verify_under_a_different_target() {
 }
 
 /// Raising the target must cost proof bytes. If it did not, the parameter would not be
-/// buying queries and the whole measurement on this branch would be meaningless.
+/// buying queries and the whole measurement here would be meaningless.
 ///
 /// Raises *up to* the default rather than past it. Going above would land over the cap on
 /// the wide build, where the default is already the binding level, and would then be

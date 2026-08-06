@@ -36,8 +36,8 @@ jobs:
       # measurements this repository publishes are release measurements.
       - run: cargo test --workspace --release
 
-  # SPIKE BRANCH. The wide configuration has to be tested, not merely built. This
-  # branch's history is a sequence of bugs where the wide path compiled cleanly and
+  # The wide configuration has to be tested, not merely built. This repository's history
+  # is a sequence of bugs where the wide path compiled cleanly and
   # produced narrow results: a CLI defaulting to a 96-bit target on a 256-bit field, a
   # stat subcommand reporting upstream's constant, a demo page hardcoding "96-bit", a
   # harness calling ZKVerifier::setup directly and getting the narrow budget. Every one

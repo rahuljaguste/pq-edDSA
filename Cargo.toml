@@ -22,10 +22,11 @@ hex = "0.4"
 [profile.release]
 lto = "thin"
 
-# SPIKE BRANCH ONLY. Points every binius crate at the fork's
+# Points every binius crate at the fork's
 # spike/genericize-verifier-256b, which adds SECURITY_BITS_WIDE, a GF(2^256) challenge
 # field with SHA-512, and ZKVerifier::setup_with_security_bits. That branch is based on
-# 21f0ceea, the same revision main pins, so the fork's own work is the only variable.
+# 21f0ceea, the revision the workspace dependencies above declare, so the fork's own
+# work is the only variable this redirect introduces.
 #
 # A git rev, not a local path: an absolute path builds only on the machine that has it,
 # which would make CI fail on every job rather than test the wide configuration. Pinned
@@ -40,7 +41,10 @@ lto = "thin"
 #     git -C <fork> tag pq-eddsa-wide-base 251d595b
 #     git -C <fork> push origin pq-eddsa-wide-base
 #
-# main must never carry this: the published numbers depend on a pinned public revision.
+# This is a real cost and it is on the default branch. Building here does not build
+# against upstream, and the narrow figures measured this way run ~30% slower than the
+# upstream ones the README quotes. `main-upstream` is the last commit that depended on
+# upstream alone, if you need a build without the fork.
 [patch."https://github.com/binius-zk/binius64"]
 binius-circuits = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }
 binius-compute = { git = "https://github.com/rahuljaguste/binius64", rev = "251d595bae1e70aed119d4f08b4eff9d4db01dd7" }

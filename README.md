@@ -126,7 +126,7 @@ Browser figures are Chrome 150, cold profile, caching disabled: **11.1× native 
 requests after load.
 
 All four rows carry the fork's ~30% narrow-path regression described above, so compare them
-with each other and not with `main`.
+with each other, not with an upstream build.
 
 ## Soundness
 
@@ -144,7 +144,7 @@ field reaches 112, free in proving time and costing +12% proof size. Switching t
 
 Neither goes higher. logUp\* contributes a fixed `2^16/|F|` that no query budget affects,
 capping the narrow field at 112 and the wide one at 240, not 256. The default stays at 96
-so a narrow build remains comparable with `main`.
+so a narrow build here remains comparable with upstream.
 
 **Ligetron's figure is derived here, not published by Ligetron.** From `include/params.hpp`:
 192 column openings, rate `ρ = 1/4`, SHA-256, BN254. Interleaved Reed–Solomon proximity at

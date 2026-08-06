@@ -8,7 +8,7 @@
 //!
 //! # Soundness
 //!
-//! SPIKE BRANCH. Upstream fixes `SECURITY_BITS = 96` and `ZKVerifier::setup` takes no
+//! Upstream fixes `SECURITY_BITS = 96` and `ZKVerifier::setup` takes no
 //! override, so on `main` 96 bits classical is the only setting available. This branch
 //! patches in a fork adding `setup_with_security_bits` and a wide configuration, so two
 //! things become adjustable and neither is free:
@@ -20,7 +20,7 @@
 //!
 //! Raising the target past what the field can deliver is accepted silently and costs real
 //! proof size for nothing. Every published benchmark must state its level alongside its
-//! numbers, and any figure from this branch must also say it depends on an unmerged,
+//! numbers, and any figure measured here must also say it depends on an unmerged,
 //! unaudited fork.
 
 use anyhow::{Result, anyhow};
@@ -31,7 +31,7 @@ use binius_verifier::zk_config::ZKVerifier;
 /// The proving configuration: challenge field, packed representation, hash suite and
 /// Fiat-Shamir challenger. All four move together, so they are declared together.
 ///
-/// SPIKE BRANCH ONLY. `--features wide` selects the fork's `GF(2^256)` / SHA-512 path.
+/// `--features wide` selects the fork's `GF(2^256)` / SHA-512 path.
 /// Upstream has only the narrow one.
 #[cfg(not(feature = "wide"))]
 mod cfg {
@@ -52,7 +52,7 @@ mod cfg {
     /// +12% proof size.
     ///
     /// Left at 96 deliberately, unlike the wide default which was moved to its binding
-    /// level. A narrow build on this branch should stay directly comparable with `main`,
+    /// level. A narrow build here should stay directly comparable with an upstream build,
     /// which cannot raise it at all. Pass `--security-bits 112` to take the rest.
     pub const DEFAULT_SECURITY_BITS: usize = binius_verifier::SECURITY_BITS;
     pub const IS_WIDE: bool = false;
@@ -154,7 +154,7 @@ pub struct ProofConfig {
     pub log_inv_rate: usize,
     /// FRI query-phase target, in bits.
     ///
-    /// SPIKE BRANCH ONLY. Upstream hardcodes 96 and exposes no override; this is available
+    /// Upstream hardcodes 96 and exposes no override; this is available
     /// because the branch patches in a fork carrying `setup_with_security_bits`. The
     /// useful ceiling is 112 on the narrow field and ~240 on the wide one: past that the
     /// logUp\* term at `2^16/|F|` binds instead, and a larger query budget buys nothing.
