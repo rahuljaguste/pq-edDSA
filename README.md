@@ -74,20 +74,19 @@ can test candidates offline. Harmless at full entropy, fatal for a guessable see
 | soundness, quantum | ~48-bit | **~120-bit** | ~64-bit |
 | host | M1 Pro, 8 cores | M1 Pro, 8 cores | M4 Pro, 12 cores |
 
-The circuit is the same either way; only the proving system's field changes. Narrow beats
-PQChain on every row but memory and soundness. Wide takes soundness too, and is still
-**11.4× faster with a 2.2× smaller proof** than PQChain.
+The circuit is identical in both columns. Only the proving system's field changes.
 
-Wide costs **2.99× the prove time and 4.75× the proof** of narrow, measured like-for-like
-on the fork.
+Narrow beats PQChain everywhere except memory and soundness. Wide wins those two as well,
+and is still **11.4× faster with a 2.2× smaller proof**. What it costs is **2.99× the prove
+time and 4.75× the proof size** of narrow, measured like-for-like on the fork.
 
-The two columns look further apart than that, because they are measured differently. The
-narrow column is upstream. The wide column is the fork, and **the fork is ~30% slower on
-the narrow path**: 125 ms upstream, 159 ms on the fork, same 96-bit target. A repaired fork
-would make the wide column faster.
+The two columns look further apart than 2.99× because they were measured differently. The
+narrow one runs against upstream, the wide one against the fork. And **the fork is ~30%
+slower on the narrow path**: 125 ms against 159 ms, at the same 96-bit target. Repairing
+that would make the wide column faster, not slower.
 
-**Memory is the row where this loses.** 8× worse than PQChain narrow, 20× wide. Nothing
-here is tuned for it.
+**Memory is the one row where this loses.** Narrow uses 8× what PQChain does, wide 20×, and
+nothing here has been tuned for it.
 
 How these were measured:
 
@@ -118,8 +117,8 @@ Medians, first run discarded, machine settled below load 4 before each:
 | browser, narrow | 96 | ~48 | **1,763 ms** | 245 ms | 515 KiB | 760 ms | 212 MB |
 | browser, wide | **~240** | **~120** | **6,059 ms** | 1,639 ms | 2,447 KiB | 913 ms | 604 MB |
 
-**2.5× the bits** for 2.99× the prove time. Against PQChain's ~64 quantum, narrow is below
-at ~48 and wide is roughly double at ~120.
+Wide buys **2.5× the bits**, classical and quantum alike. Set against PQChain's ~64-bit
+quantum figure, narrow falls short at ~48 and wide roughly doubles it at ~120.
 
 Browser figures are Chrome 150, cold profile, caching disabled: **11.1× native for narrow,
 12.8× for wide**, because WebAssembly has no carry-less multiply. In both configurations
@@ -138,9 +137,10 @@ with each other and not with `main`.
 | binius64, target raised | GF(2^128) | SHA-256 | 112 (logUp\* cap) | ~56 |
 | **`--features wide`** | GF(2^256) | SHA-512 | **~240** | **~120** |
 
-Upstream fixes `SECURITY_BITS = 96` and exposes no override, so 96 is the ceiling there.
-This branch patches upstream, which raises it two ways. On the narrow field, 112 is
-reachable and free in proving time, costing +12% proof size. With `--features wide`, ~240.
+Upstream fixes `SECURITY_BITS = 96` and exposes no override, so 96 is the ceiling against
+upstream. This branch patches it, which opens two routes higher. Staying on the narrow
+field reaches 112, free in proving time and costing +12% proof size. Switching to
+`--features wide` reaches ~240.
 
 Neither goes higher. logUp\* contributes a fixed `2^16/|F|` that no query budget affects,
 capping the narrow field at 112 and the wide one at 240, not 256. The default stays at 96
@@ -155,30 +155,34 @@ therefore binds. Check it rather than taking it on trust.
 with a `TODO` where its derivation should be. Raising it is free up to 2,133 on the narrow
 build, but upstream exposes no override, so the value cannot be set.
 
-That ceiling is not known to hold under `--features wide`: it raises the FRI query count
-from 232 to 579, drawing on the same budget. And none of this establishes zero-knowledge.
-That is a simulation property, and a real answer needs a simulator construction.
+That ceiling is not known to hold under `--features wide`, which raises the FRI query count
+from 232 to 579 and draws on the same budget. None of this establishes zero-knowledge
+anyway. Zero-knowledge is a simulation property, and answering it properly needs a
+simulator construction.
 
 ## What is missing
 
-**Blocked on upstream.** Soundness above 96 bits, and a settable `n_dummy_constraints`.
+**Blocked on upstream.** Two things: soundness above 96 bits, and a settable
+`n_dummy_constraints`.
 
-`--features wide` reaches ~240/~120, but on an unmerged fork, and that is the part that
-matters. 96 bits is checkable in one grep of upstream. ~240 rests on unreviewed work by the
-same person claiming it. **Until that fork is merged and reviewed, the stronger number is
-the weaker claim.**
+`--features wide` does reach ~240/~120, but only against an unmerged fork, and the fork is
+the problem. Anyone can check 96 bits with one grep of upstream. ~240 rests on unreviewed
+work by the same person claiming it. **Until that fork is merged and reviewed, the stronger
+number is the weaker claim.**
 
 **Mine.**
 
 - An on-chain verifier. A design problem, not a missing contract: 515 KiB cannot be posted.
 - A Web Worker, so proving does not freeze the tab for 1.7 s.
-- Memory. ~280 MB against 34 MB, unprofiled. On a phone that matters more than the proving
-  time I win on.
-- Firefox and Safari are untested. So is an audit.
+- Memory. ~280 MB against PQChain's 34 MB, and unprofiled. On a phone that would matter
+  more than the proving time this wins on.
+- Firefox and Safari, both untested. Only Chrome 150 has been measured.
+- An audit. There has not been one.
 
-**Investigated and rejected.** Multi-core proving: rayon is within noise here, since the
-prover is latency-bound at 57K AND constraints. `+simd128`: 0.7%, measured. Further IMUL
-reduction: every lever lands in the same 2^13 padding tier.
+**Investigated and rejected.** Multi-core proving would buy nothing, because rayon measures
+within noise at 57K AND constraints, where the prover is latency-bound. `+simd128` is worth
+0.7%, measured. Reducing IMUL further is impossible: every available lever lands in the same
+2^13 padding tier.
 
 ## Acknowledgements
 
@@ -186,12 +190,13 @@ reduction: every lever lands in the same 2^13 padding tier.
   *[Post-Quantum Readiness in EdDSA Chains](https://eprint.iacr.org/2025/1368.pdf)*
   (FC 2026; ePrint 2025/1368). The construction and its security argument are theirs; this
   implements their relation on a different proving system.
-- [SoundnessLabs/PQChain](https://github.com/SoundnessLabs/PQChain) (Apache-2.0), measured
-  against here, and specifically its `fix/ed25519-scalar-mul-secret-leak` commit, which
-  named a bug class this repository now tests for explicitly.
+- [SoundnessLabs/PQChain](https://github.com/SoundnessLabs/PQChain) (Apache-2.0), the
+  implementation measured against here, and in particular its
+  `fix/ed25519-scalar-mul-secret-leak` commit, which named a bug class this repository now
+  tests for explicitly.
 - [Binius](https://www.binius.xyz) and [Irreducible](https://www.irreducible.com) for
-  [Binius64](https://github.com/binius-zk/binius64), which is what makes the result
-  possible.
+  [Binius64](https://github.com/binius-zk/binius64). The result is a property of their
+  proving system.
 - [curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek), the
   independent reference throughout the test suite.
 
