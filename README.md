@@ -5,11 +5,12 @@
 Prove ownership of an Ed25519 key from its seed, in zero knowledge, without revealing the
 seed or changing the on-chain address.
 
-An implementation of the relation from **[Post-Quantum Readiness in EdDSA
+This implements the relation from **[Post-Quantum Readiness in EdDSA
 Chains](https://eprint.iacr.org/2025/1368.pdf)** (Baldimtsi, Chalkias, Roy, Sedaghat;
-FC 2026) on [Binius64](https://github.com/binius-zk/binius64), measured against the paper's
-reference implementation [SoundnessLabs/PQChain](https://github.com/SoundnessLabs/PQChain),
-which uses the Ligetron zkVM.
+FC 2026) on [Binius64](https://github.com/binius-zk/binius64). It is measured against the
+paper's reference implementation,
+[SoundnessLabs/PQChain](https://github.com/SoundnessLabs/PQChain), which uses the Ligetron
+zkVM.
 
 PQChain names its own bottleneck: Ligetron needs an FFT-friendly field and `p = 2^255 − 19`
 is not one, so it emulates. Binius64 computes over 64-bit machine words and has no such
@@ -77,21 +78,28 @@ The circuit is the same either way; only the proving system's field changes. Nar
 PQChain on every row but memory and soundness. Wide takes soundness too, and is still
 **11.4× faster with a 2.2× smaller proof** than PQChain.
 
-Wide costs **2.99× the prove time and 4.75× the proof** of narrow. That is measured
-like-for-like, both on the fork. The two columns above look further apart than that because
-the narrow one is measured against upstream, and **the fork carries a ~30% regression on the
-narrow path** — 125 ms upstream against 159 ms on the fork at the same 96-bit target. A
-repaired fork would make the wide column faster, not slower.
+Wide costs **2.99× the prove time and 4.75× the proof** of narrow, measured like-for-like
+on the fork.
 
-**Memory is the row where this loses**: 8× worse than PQChain narrow, 20× wide, and nothing
+The two columns look further apart than that, because they are measured differently. The
+narrow column is upstream. The wide column is the fork, and **the fork is ~30% slower on
+the narrow path**: 125 ms upstream, 159 ms on the fork, same 96-bit target. A repaired fork
+would make the wide column faster.
+
+**Memory is the row where this loses.** 8× worse than PQChain narrow, 20× wide. Nothing
 here is tuned for it.
 
-Mine: 30 runs, first discarded, single-threaded, `log_inv_rate = 1`, **system load ~6 on 8
-cores**, not a quiescent machine, so these are conservative. Theirs: from
-PQChain's own README, 100 runs on an M4 Pro, not re-run here. Where their README and the
-paper disagree I quote **the figure more favourable to them**: 5.4 s, not the paper's 6.2 s,
-which would make the ratio 54× instead of 47×. Reproduce with
-`cargo test -p pq-eddsa --release --test bench -- --ignored --nocapture`.
+How these were measured:
+
+- **Mine.** 30 runs, first discarded. Single-threaded, `log_inv_rate = 1`. **System load ~6
+  on 8 cores**, so not a quiescent machine, and these figures are conservative.
+- **Theirs.** From PQChain's own README: 100 runs on an M4 Pro. Not re-run here.
+- **Where their README and the paper disagree**, I quote the figure more favourable to
+  them. 5.4 s, not the paper's 6.2 s, which would make the ratio 54× instead of 47×.
+
+```bash
+cargo test -p pq-eddsa --release --test bench -- --ignored --nocapture
+```
 
 PQChain reports that non-native field emulation and scalar multiplication are **~70%** of
 its constraints, SHA-512 another ~20%. Here SHA-512 costs **918 AND per compression block**
@@ -130,36 +138,43 @@ with each other and not with `main`.
 | binius64, target raised | GF(2^128) | SHA-256 | 112 (logUp\* cap) | ~56 |
 | **`--features wide`** | GF(2^256) | SHA-512 | **~240** | **~120** |
 
-Upstream fixes `SECURITY_BITS = 96` and exposes no override, so against upstream 96 is the
-ceiling. This branch patches upstream: 112 is reachable on the narrow field, free in
-proving time for +12% proof size, and `--features wide` reaches ~240. Past those, logUp\*
-contributes a fixed `2^16/|F|` that no query budget affects: 112 narrow, 240 not 256 wide.
-The default stays 96 so a narrow build stays comparable with `main`.
+Upstream fixes `SECURITY_BITS = 96` and exposes no override, so 96 is the ceiling there.
+This branch patches upstream, which raises it two ways. On the narrow field, 112 is
+reachable and free in proving time, costing +12% proof size. With `--features wide`, ~240.
+
+Neither goes higher. logUp\* contributes a fixed `2^16/|F|` that no query budget affects,
+capping the narrow field at 112 and the wide one at 240, not 256. The default stays at 96
+so a narrow build remains comparable with `main`.
 
 **Ligetron's figure is derived here, not published by Ligetron.** From `include/params.hpp`:
 192 column openings, rate `ρ = 1/4`, SHA-256, BN254. Interleaved Reed–Solomon proximity at
 the unique-decoding bound gives `(5/8)^192 = 2^-130.2`; SHA-256's `~2^-128` birthday bound
 therefore binds. Check it rather than taking it on trust.
 
-**The zero-knowledge claim is unaudited.** Binius64's `n_dummy_constraints` is hardcoded to
-`2` with a `TODO` where its derivation should be. Raising it is free up to 2,133 on the
-narrow build; upstream exposes no override, and the wide build's larger query count (232 →
-579) draws on the same budget, so that ceiling is not known to hold there. Zero-knowledge is
-a simulation property and a real answer needs a simulator construction.
+**The zero-knowledge claim is unaudited.** Binius64 hardcodes `n_dummy_constraints` to `2`,
+with a `TODO` where its derivation should be. Raising it is free up to 2,133 on the narrow
+build, but upstream exposes no override, so the value cannot be set.
+
+That ceiling is not known to hold under `--features wide`: it raises the FRI query count
+from 232 to 579, drawing on the same budget. And none of this establishes zero-knowledge.
+That is a simulation property, and a real answer needs a simulator construction.
 
 ## What is missing
 
-**Blocked on upstream.** Soundness above 96 bits: `SECURITY_BITS` is fixed and the narrow
-field caps at 112 regardless. `--features wide` clears it at ~240/~120, but on an unmerged
-fork, which is the part that matters. 96 bits is checkable in one grep of upstream;
-~240 rests on unreviewed work by the same person claiming it. **Until that fork is merged
-and reviewed, the stronger number is the weaker claim.** Also: `n_dummy_constraints` is
-hardcoded to 2 with no override.
+**Blocked on upstream.** Soundness above 96 bits, and a settable `n_dummy_constraints`.
 
-**Mine.** An on-chain verifier: a design problem, not a missing contract, since 515 KiB
-cannot be posted. A Web Worker, so proving does not freeze the tab for 1.7 s. Memory, ~280
-MB against 34 MB, unprofiled: on a phone that beats the proving time I win on. Firefox and
-Safari untested. An audit.
+`--features wide` reaches ~240/~120, but on an unmerged fork, and that is the part that
+matters. 96 bits is checkable in one grep of upstream. ~240 rests on unreviewed work by the
+same person claiming it. **Until that fork is merged and reviewed, the stronger number is
+the weaker claim.**
+
+**Mine.**
+
+- An on-chain verifier. A design problem, not a missing contract: 515 KiB cannot be posted.
+- A Web Worker, so proving does not freeze the tab for 1.7 s.
+- Memory. ~280 MB against 34 MB, unprofiled. On a phone that matters more than the proving
+  time I win on.
+- Firefox and Safari are untested. So is an audit.
 
 **Investigated and rejected.** Multi-core proving: rayon is within noise here, since the
 prover is latency-bound at 57K AND constraints. `+simd128`: 0.7%, measured. Further IMUL
