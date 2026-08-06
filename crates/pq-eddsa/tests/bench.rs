@@ -49,12 +49,13 @@ fn measure_hash_suites_reversed() {
 /// prints its numbers in the same format, so the output looks like a measurement. It is
 /// about 92x slower: 14,563 ms against 159 ms for one `R_det` proof. Publishing that by
 /// accident would be worse than having no number.
+#[cfg(debug_assertions)]
 fn require_release() {
-    assert!(
-        !cfg!(debug_assertions),
-        "measurement run without --release; timings would be ~92x slow and meaningless"
-    );
+    panic!("measurement run without --release; timings would be ~92x slow and meaningless");
 }
+
+#[cfg(not(debug_assertions))]
+fn require_release() {}
 
 fn run<S>(suite_name: &str)
 where
