@@ -172,7 +172,11 @@ number is the weaker claim.**
 
 **Mine.**
 
-- An on-chain verifier. A design problem, not a missing contract: 515 KiB cannot be posted.
+- An on-chain verifier. Getting the proof there is not the obstacle: 515 KiB is five
+  EIP-4844 blobs, or roughly 8.4M gas as calldata. But the EVM cannot read blob contents,
+  only their hashes, so blobs give data availability and not verification. The obstacle is
+  running the verifier itself, with its FRI queries, Merkle paths and `GF(2^128)`
+  arithmetic, at EVM gas prices. Unmeasured.
 - A Web Worker, so proving does not freeze the tab for 1.7 s.
 - Memory. ~280 MB against PQChain's 34 MB, and unprofiled. On a phone that would matter
   more than the proving time this wins on.
