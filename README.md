@@ -43,7 +43,7 @@ The first build compiles Binius64 from a pinned git revision, so expect a few mi
 Browser demo, additionally needing `cargo install wasm-bindgen-cli --version 0.2.126`:
 
 ```bash
-./web/build.sh && (cd web && python3 -m http.server 8742)
+./web/build.sh && (cd web && python3 -m http.server 8742)   # WIDE=1 for GF(2^256)
 ```
 
 ## What it proves
@@ -110,12 +110,16 @@ Medians, first run discarded, machine settled below load 4 before each:
 | browser, narrow | 96 | ~48 | **1,763 ms** | 245 ms | 515 KiB | 760 ms | 212 MB |
 | browser, wide | **~240** | **~120** | **6,059 ms** | 1,639 ms | 2,447 KiB | 913 ms | 604 MB |
 
-Wide costs **2.99× prove and 4.75× proof size** for **2.5× the bits**, classical and
-quantum. Against PQChain's ~64 quantum: narrow is below at ~48, wide roughly double at
-~120. Proof sizes are byte-identical between native and browser.
+**2.5× the bits** for 2.99× the prove time. Against PQChain's ~64 quantum, narrow is below
+at ~48 and wide is roughly double at ~120.
 
-All four carry the fork's ~30% narrow-path regression described above, so compare them with
-each other and not with `main`.
+Browser figures are Chrome 150, cold profile, caching disabled: **11.1× native for narrow,
+12.8× for wide**, because WebAssembly has no carry-less multiply. In both configurations
+`pk`, `hx` and the proof match the native CLI byte for byte, and the page issues no network
+requests after load.
+
+All four rows carry the fork's ~30% narrow-path regression described above, so compare them
+with each other and not with `main`.
 
 ## Soundness
 
@@ -142,26 +146,6 @@ therefore binds. Check it rather than taking it on trust.
 narrow build; upstream exposes no override, and the wide build's larger query count (232 →
 579) draws on the same budget, so that ceiling is not known to hold there. Zero-knowledge is
 a simulation property and a real answer needs a simulator construction.
-
-## Browser proving
-
-The seed must never leave the machine, which only holds if proving happens where the seed
-already is.
-
-```bash
-./web/build.sh && (cd web && python3 -m http.server 8742)   # WIDE=1 for GF(2^256)
-```
-
-Chrome 150, cold profile, caching disabled: **1,763 ms** prove, **245 ms** verify, 515 KiB,
-**212 MB** peak heap; wide is 6,059 ms and 604 MB. That is **11.1× native for narrow and
-12.8× for wide**, because WebAssembly has no carry-less multiply, so multiplication in the
-challenge field falls back to software. `pk`, `hx` and proof size match the
-native CLI byte for byte. The page is static files and issues no network requests after
-load, which you can check in DevTools.
-
-Single-threaded: the `rayon` feature is off, and on wasm32 without atomics the parallel
-path degrades regardless. Multi-core would need cross-origin isolation and would buy
-nothing, since rayon measures within noise on a circuit this small even natively.
 
 ## What is missing
 
