@@ -172,11 +172,6 @@ number is the weaker claim.**
 
 **Mine.**
 
-- An on-chain verifier. The paper's targets are Ed25519 chains, Sui and Solana and Near,
-  not the EVM, so blob and gas arithmetic is the wrong frame. Their limits are tighter:
-  a Solana transaction caps at 1,232 bytes, which a 515 KiB proof exceeds by 428× and a
-  2,447 KiB one by 2,034×. Whatever the answer is, it involves not putting the proof on
-  chain. Unexplored here.
 - A Web Worker, so proving does not freeze the tab for 1.7 s.
 - Memory. ~280 MB against PQChain's 34 MB, and unprofiled. On a phone that would matter
   more than the proving time this wins on.
