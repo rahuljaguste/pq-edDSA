@@ -3,7 +3,7 @@
 [![CI](https://github.com/rahuljaguste/pq-edDSA/actions/workflows/ci.yml/badge.svg)](https://github.com/rahuljaguste/pq-edDSA/actions/workflows/ci.yml)
 
 Prove ownership of an Ed25519 key from its seed, in zero knowledge, without revealing the
-seed or changing the on-chain address.
+seed or changing the on-chain address. The setting is Ed25519 chains: Sui, Solana, Near.
 
 This implements the relation from **[Post-Quantum Readiness in EdDSA
 Chains](https://eprint.iacr.org/2025/1368.pdf)** (Baldimtsi, Chalkias, Roy, Sedaghat;
@@ -172,11 +172,11 @@ number is the weaker claim.**
 
 **Mine.**
 
-- An on-chain verifier. Getting the proof there is not the obstacle: 515 KiB is five
-  EIP-4844 blobs, or roughly 8.4M gas as calldata. But the EVM cannot read blob contents,
-  only their hashes, so blobs give data availability and not verification. The obstacle is
-  running the verifier itself, with its FRI queries, Merkle paths and `GF(2^128)`
-  arithmetic, at EVM gas prices. Unmeasured.
+- An on-chain verifier. The paper's targets are Ed25519 chains, Sui and Solana and Near,
+  not the EVM, so blob and gas arithmetic is the wrong frame. Their limits are tighter:
+  a Solana transaction caps at 1,232 bytes, which a 515 KiB proof exceeds by 428× and a
+  2,447 KiB one by 2,034×. Whatever the answer is, it involves not putting the proof on
+  chain. Unexplored here.
 - A Web Worker, so proving does not freeze the tab for 1.7 s.
 - Memory. ~280 MB against PQChain's 34 MB, and unprofiled. On a phone that would matter
   more than the proving time this wins on.
