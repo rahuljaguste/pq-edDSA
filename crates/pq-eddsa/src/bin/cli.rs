@@ -242,6 +242,11 @@ fn main() -> Result<()> {
             println!("IMUL constraints: {}", s.imul_constraints.len());
             println!("private wires:    {}", s.n_private);
             println!("query target:     {DEFAULT_SECURITY_BITS} bits (this build's default)");
+            // Named, not left to be inferred from the target above. `cargo test` rebuilds
+            // this binary with whatever features it was given, so the one on disk is not
+            // always the one you last asked for, and 240 only means "wide" to someone who
+            // already knows the mapping.
+            println!("build:            {}", build_name());
             println!("relation:         {:?}", Relation::from(relation));
         }
 
