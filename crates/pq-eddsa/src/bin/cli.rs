@@ -165,7 +165,7 @@ fn build_name() -> &'static str {
 /// from a bare `--proof --pk --hx` with no metadata at all, prove and verify usually
 /// happen minutes apart in one session, and nothing here is a protocol, so proof files
 /// have no reason to travel. The one path that did cross a tool boundary by default is
-/// the browser demo, which proves `rand` while this CLI defaults to `det` -- covered by
+/// the browser demo, which proves `rand` while this CLI defaults to `det` — covered by
 /// this hint and by the equivalent one in `web/main.js`.
 ///
 /// If that changes and an envelope is added, two things are worth keeping:
@@ -186,13 +186,28 @@ fn verify_command(
     security_bits: usize,
 ) -> String {
     format!(
-        "verify --proof {path} --pk {} --msg {} --hx {} --relation {} \
+        "verify --proof {} --pk {} --msg {} --hx {} --relation {} \
          --log-inv-rate {log_inv_rate} --security-bits {security_bits}",
+        shell_quote(path),
         hex::encode(pi.pk),
         hex::encode(pi.msg),
         hex::encode(pi.hx),
         relation.as_flag(),
     )
+}
+
+/// Quote a path for a POSIX shell, so `--out "my proofs/p.bin"` still yields a command
+/// that survives a paste. Interpolated raw it splits into `--proof my` plus a stray
+/// `proofs/p.bin`, and the hint fails on the one thing it exists to get right.
+///
+/// Single quotes, which are literal for everything except `'` itself. Applied only when
+/// the path needs it: quoting an ordinary filename would be noise on every line.
+fn shell_quote(path: &str) -> String {
+    let safe = |b: u8| b.is_ascii_alphanumeric() || b"._-/=:+,@".contains(&b);
+    if !path.is_empty() && path.bytes().all(safe) {
+        return path.to_string();
+    }
+    format!("'{}'", path.replace('\'', r"'\''"))
 }
 
 /// Resolve `--seed` / `--seed-file` into hex. Clap guarantees exactly one is present.
@@ -340,7 +355,7 @@ fn main() -> Result<()> {
             let mut vt = VerifierTranscript::new(Challenger::default(), proof);
             let t = std::time::Instant::now();
             // Four settings have to match the `prove` run and the proof file records none
-            // of them, so a forgotten flag fails exactly like a tampered statement --
+            // of them, so a forgotten flag fails exactly like a tampered statement —
             // `OuterVerification(IPChannel(InvalidAssert))` either way. Report what this
             // run assumed, or the user has no way to tell the two apart.
             verifier.verify(&public, &mut vt).map_err(|e| {
@@ -438,10 +453,28 @@ mod tests {
         }
     }
 
+    /// Quoting is what makes the printed command survive a path a shell would split.
+    /// Checked separately because the round-trip test below splits on whitespace, which
+    /// is the very assumption that breaks here -- it cannot catch this and must not be
+    /// read as if it could.
+    #[test]
+    fn paths_a_shell_would_split_are_quoted() {
+        assert_eq!(shell_quote("proof.bin"), "proof.bin");
+        assert_eq!(shell_quote("out/dir/p-1_2.bin"), "out/dir/p-1_2.bin");
+        assert_eq!(shell_quote("my proofs/p.bin"), "'my proofs/p.bin'");
+        // A quote in the path closes the quoting and would let the rest run as shell
+        // words. `'\''` is the POSIX way back in.
+        assert_eq!(shell_quote("it's.bin"), r"'it'\''s.bin'");
+        assert_eq!(shell_quote(""), "''");
+    }
+
     /// A proof file records none of the settings it was made under, so this command is
     /// the only thing carrying them. Round-trip it through the parser: a dropped flag or
     /// a wrong field would otherwise surface only when someone pasted it, and the
     /// resulting failure looks like a bad proof rather than a bad hint.
+    ///
+    /// Whitespace-split, so it covers the settings rather than the quoting; paths that a
+    /// shell would split are [`paths_a_shell_would_split_are_quoted`]'s job.
     #[test]
     fn the_printed_verify_command_parses_back_to_the_same_settings() {
         let pi = PublicInputs {
