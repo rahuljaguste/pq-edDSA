@@ -170,9 +170,13 @@ $('download').onclick = () => {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  // The CLI has to be built the way this page was. The field, hash suite and challenger
+  // are chosen at compile time, so a default narrow CLI cannot read a wide proof — and it
+  // fails the way a forged proof does, which is the confusion worth spending a flag on.
   setStatus(
     'Downloaded. Check it against the native verifier: ' +
-      'cargo run --release --bin cli -- verify --proof <file> --pk <pk> --msg <msg> --hx <hx>' +
+      `cargo run --release --bin cli${is_wide_build() ? ' --features wide' : ''} -- ` +
+      'verify --proof <file> --pk <pk> --msg <msg> --hx <hx>' +
       (last.relation === 'rand' ? ' --relation rand' : ''),
     'ok',
   );
