@@ -163,7 +163,13 @@ $('download').onclick = () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `pq-eddsa-${last.relation}-${last.proof.pk.slice(0, 8)}.proof`;
+  // Build in the name, not just in the status line below. The same seed and relation
+  // produce the same filename from a narrow page and a wide one, so the two land in
+  // Downloads as `x.proof` and `x (1).proof` — indistinguishable, needing different CLIs.
+  // The status line is gone by then; the filename is what survives.
+  a.download =
+    `pq-eddsa-${is_wide_build() ? 'wide' : 'narrow'}-${last.relation}` +
+    `-${last.proof.pk.slice(0, 8)}.proof`;
   // Appended, and revoked on a later turn: revoking synchronously after click() can
   // cancel the download before it starts, and a detached anchor does not always fire.
   document.body.appendChild(a);
