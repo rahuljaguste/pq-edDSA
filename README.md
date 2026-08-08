@@ -35,6 +35,9 @@ cargo run --release --bin cli -- prove \
 
 # Read a real seed from a file or stdin. --seed puts it in your shell history.
 cargo run --release --bin cli -- prove --seed-file seed.hex --out proof.bin
+
+# A proof records none of the settings it was made under, and getting one wrong fails
+# exactly like a forged proof does. `prove` prints the matching command; paste that.
 cargo run --release --bin cli -- verify --proof proof.bin --pk <hex> --hx <hex>
 cargo run --release --bin cli -- stat
 ```

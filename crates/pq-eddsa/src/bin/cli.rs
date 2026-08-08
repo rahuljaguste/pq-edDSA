@@ -60,6 +60,16 @@ impl From<RelationArg> for Relation {
     }
 }
 
+impl RelationArg {
+    /// The `--relation` value that reproduces this choice, for the hints below.
+    fn as_flag(self) -> &'static str {
+        match self {
+            RelationArg::Det => "det",
+            RelationArg::Rand => "rand",
+        }
+    }
+}
+
 #[derive(Subcommand)]
 enum Cmd {
     /// Generate a proof.
@@ -127,6 +137,41 @@ fn parse_hex<const N: usize>(s: &str, what: &str) -> Result<[u8; N]> {
         bail!("{what} must be {N} bytes, got {}", raw.len());
     }
     Ok(raw.try_into().unwrap())
+}
+
+/// Which build produced or is checking a proof. A fourth setting that has to match and
+/// that no flag can change, since the field, hash suite and challenger are chosen at
+/// compile time.
+fn build_name() -> &'static str {
+    if pq_eddsa::config::IS_WIDE {
+        "wide"
+    } else {
+        "narrow"
+    }
+}
+
+/// The exact command that verifies the proof just written.
+///
+/// A proof file is raw transcript bytes and records none of the settings it was made
+/// under. Get any of them wrong at verification time and the failure is the one a forged
+/// proof gives — `--relation rand` proved and checked as `det` is indistinguishable from
+/// a flipped bit in `pk`. Printing the command next to the file is the cheapest place to
+/// keep them together.
+fn verify_command(
+    path: &str,
+    pi: &PublicInputs,
+    relation: RelationArg,
+    log_inv_rate: usize,
+    security_bits: usize,
+) -> String {
+    format!(
+        "verify --proof {path} --pk {} --msg {} --hx {} --relation {} \
+         --log-inv-rate {log_inv_rate} --security-bits {security_bits}",
+        hex::encode(pi.pk),
+        hex::encode(pi.msg),
+        hex::encode(pi.hx),
+        relation.as_flag(),
+    )
 }
 
 /// Resolve `--seed` / `--seed-file` into hex. Clap guarantees exactly one is present.
@@ -212,17 +257,29 @@ fn main() -> Result<()> {
                 .map_err(|e| anyhow::anyhow!("prove: {e:?}"))?;
             let proof = tr.finalize();
             eprintln!(
-                "proved in {} ms, {} bytes, {security_bits}-bit query target",
+                "proved in {} ms, {} bytes, {security_bits}-bit query target, {} build",
                 t.elapsed().as_millis(),
-                proof.len()
+                proof.len(),
+                build_name()
             );
 
             println!("pk  {}", hex::encode(pi.pk));
             println!("msg {}", hex::encode(pi.msg));
             println!("hx  {}", hex::encode(pi.hx));
-            if let Some(path) = out {
-                std::fs::write(&path, &proof)?;
-                eprintln!("proof written to {path}");
+
+            match out {
+                Some(path) => {
+                    std::fs::write(&path, &proof)?;
+                    eprintln!("proof written to {path}");
+                    eprintln!(
+                        "{}",
+                        verify_command(&path, &pi, relation, log_inv_rate, security_bits)
+                    );
+                }
+                // Proving is the whole cost of this command and the bytes go out of scope
+                // here. Worth a line: `--out` is easy to leave off, and with it absent
+                // every other line of output is identical to a run that kept the proof.
+                None => eprintln!("proof discarded — pass --out <path> to keep it"),
             }
         }
 
@@ -261,9 +318,22 @@ fn main() -> Result<()> {
             let verifier = cfg.setup_verifier(cs.constraint_system().clone())?;
             let mut vt = VerifierTranscript::new(Challenger::default(), proof);
             let t = std::time::Instant::now();
-            verifier
-                .verify(&public, &mut vt)
-                .map_err(|e| anyhow::anyhow!("verification FAILED: {e:?}"))?;
+            // Four settings have to match the `prove` run and the proof file records none
+            // of them, so a forgotten flag fails exactly like a tampered statement --
+            // `OuterVerification(IPChannel(InvalidAssert))` either way. Report what this
+            // run assumed, or the user has no way to tell the two apart.
+            verifier.verify(&public, &mut vt).map_err(|e| {
+                anyhow::anyhow!(
+                    "verification FAILED: {e:?}\n\
+                     checked as: --relation {} --log-inv-rate {log_inv_rate} \
+                     --security-bits {security_bits}, {} build.\n\
+                     A proof made under different settings fails identically to a forged \
+                     one. Confirm these match the prove run before concluding the proof \
+                     is bad.",
+                    relation.as_flag(),
+                    build_name()
+                )
+            })?;
             vt.finalize()
                 .map_err(|e| anyhow::anyhow!("transcript finalize: {e:?}"))?;
             println!("OK — verified in {} ms", t.elapsed().as_millis());
@@ -334,6 +404,58 @@ mod tests {
         let r = read_seed(None, Some("/nonexistent/pq-eddsa/seed".into()));
         assert!(r.is_err());
         assert!(format!("{:#}", r.unwrap_err()).contains("reading seed from"));
+    }
+
+    /// The hint `prove` prints is copy-pasteable only if these are the strings clap
+    /// accepts. Both are derived from the variant names, so renaming a variant would
+    /// otherwise leave every printed hint quietly unparseable.
+    #[test]
+    fn relation_flags_are_the_ones_clap_accepts() {
+        for r in [RelationArg::Det, RelationArg::Rand] {
+            let accepted = clap::ValueEnum::to_possible_value(&r).unwrap();
+            assert_eq!(r.as_flag(), accepted.get_name());
+        }
+    }
+
+    /// A proof file records none of the settings it was made under, so this command is
+    /// the only thing carrying them. Round-trip it through the parser: a dropped flag or
+    /// a wrong field would otherwise surface only when someone pasted it, and the
+    /// resulting failure looks like a bad proof rather than a bad hint.
+    #[test]
+    fn the_printed_verify_command_parses_back_to_the_same_settings() {
+        let pi = PublicInputs {
+            pk: [1u8; 32],
+            msg: [2u8; 32],
+            hx: [3u8; 64],
+        };
+        let cmd = verify_command("p.bin", &pi, RelationArg::Rand, 2, 112);
+        let argv = std::iter::once("pq-eddsa").chain(cmd.split_whitespace());
+        let Cmd::Verify {
+            proof,
+            pk,
+            msg,
+            hx,
+            log_inv_rate,
+            security_bits,
+            relation,
+        } = Cli::try_parse_from(argv)
+            .expect("printed command does not parse")
+            .cmd
+        else {
+            panic!("printed command is not a verify invocation");
+        };
+        assert_eq!(proof, "p.bin");
+        assert_eq!(parse_hex::<32>(&pk, "pk").unwrap(), pi.pk);
+        // `--msg` matters most: it defaults to all zeros when omitted, so leaving it out
+        // of the hint would produce a command that verifies a different statement.
+        assert_eq!(
+            parse_hex::<32>(&msg.expect("--msg missing"), "msg").unwrap(),
+            pi.msg
+        );
+        assert_eq!(parse_hex::<64>(&hx, "hx").unwrap(), pi.hx);
+        assert_eq!(log_inv_rate, 2);
+        assert_eq!(security_bits, 112);
+        assert_eq!(relation.as_flag(), "rand");
     }
 
     /// Clap makes these unrepresentable; the arms exist so a future change to the
