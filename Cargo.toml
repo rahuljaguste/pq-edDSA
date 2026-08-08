@@ -22,6 +22,14 @@ hex = "0.4"
 [profile.release]
 lto = "thin"
 
+# A debug build here compiles all of binius64, and full DWARF over a codebase that size is
+# what fills disks: the fork's own `target/debug` reached 19 GB with nothing else in it.
+# Line tables keep backtraces and panic line numbers, which is all a debug build is used
+# for here — `tests/bench.rs` refuses to measure one. Release is untouched, so no figure
+# in the README depends on this.
+[profile.dev]
+debug = "line-tables-only"
+
 # Points every binius crate at the fork's
 # spike/genericize-verifier-256b, which adds SECURITY_BITS_WIDE, a GF(2^256) challenge
 # field with SHA-512, and ZKVerifier::setup_with_security_bits. That branch is based on
