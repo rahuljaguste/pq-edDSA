@@ -157,6 +157,27 @@ fn build_name() -> &'static str {
 /// proof gives — `--relation rand` proved and checked as `det` is indistinguishable from
 /// a flipped bit in `pk`. Printing the command next to the file is the cheapest place to
 /// keep them together.
+///
+/// # Deliberately not a self-describing proof envelope
+///
+/// This puts the settings *beside* the file rather than *in* it, so separating the two
+/// still loses them. Judged not worth closing: a proof made with the defaults verifies
+/// from a bare `--proof --pk --hx` with no metadata at all, prove and verify usually
+/// happen minutes apart in one session, and nothing here is a protocol, so proof files
+/// have no reason to travel. The one path that did cross a tool boundary by default is
+/// the browser demo, which proves `rand` while this CLI defaults to `det` -- covered by
+/// this hint and by the equivalent one in `web/main.js`.
+///
+/// If that changes and an envelope is added, two things are worth keeping:
+///
+/// - **Compare the stored settings against the caller's, never adopt them.** The prover
+///   writes the file, so adopting means the prover picks which statement gets checked: a
+///   proof of `R_det` labelled `det` would satisfy a caller who asked for `R_rand`, and a
+///   stored `security_bits` of 96 would silently downgrade a caller who asked for 240.
+/// - **Leave the public inputs out.** Comparing them is harmless but redundant, since the
+///   caller supplies the statement anyway; storing them invites a later "simplification"
+///   that reads `pk` from the file, which is exactly the substitution the comment in
+///   `Cmd::Verify` exists to prevent.
 fn verify_command(
     path: &str,
     pi: &PublicInputs,
